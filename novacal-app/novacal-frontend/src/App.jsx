@@ -1,62 +1,67 @@
-// novacal-app/frontend/src/App.jsx
-import React, { useState } from 'react';
-import CalendarView from './components/CalendarView';
+// app.jsx
+"use client";
 
-function App() {
-  const [viewType, setViewType] = useState(7); // Default to 7-day view
-  const [tasks, setTasks] = useState([]); // This will store your tasks
+import React, { useState, useEffect } from "react";
+import CalendarView from "./components/CalendarView";
 
-  // Function to add a new task (called from CalendarView)
-  const addNewTask = (newTask) => {
-    console.log("Adding new task:", newTask);
-    setTasks((prevTasks) => [...prevTasks, newTask]);
-    // In a real app, you'd send this to your Flask backend here
-    // fetch('/api/tasks', { method: 'POST', body: JSON.stringify(newTask) })
+export default function App() {
+  const [viewType] = useState(7); // You can change this as needed: 3, 5, or 7
+  const [tasks, setTasks] = useState([]);
+
+  // Fetch tasks on mount
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const res = await fetch("http://127.0.0.1:5000/api/tasks");
+        if (!res.ok) throw new Error("Failed to fetch tasks");
+        const data = await res.json();
+        setTasks(data);
+      } catch (err) {
+        console.error("Error loading tasks:", err);
+      }
+    };
+
+    fetchTasks();
+  }, []);
+
+  // Add a new task to backend and state
+  const addNewTask = async (task) => {
+    try {
+      const res = await fetch("http://127.0.0.1:5000/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(task), // expects { name, start, end, description? }
+      });
+
+      if (!res.ok) throw new Error("Failed to add task");
+      const newTask = await res.json();
+      setTasks((prev) => [...prev, newTask]);
+    } catch (err) {
+      console.error("Error adding task:", err);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 font-sans">
-      <header className="flex justify-between items-center mb-6">
-        <h1 className="text-4xl font-bold text-gray-800">NovaCal</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setViewType(3)}
-            className={`px-4 py-2 rounded-lg text-lg font-semibold ${
-              viewType === 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            3 Day
-          </button>
-          <button
-            onClick={() => setViewType(5)}
-            className={`px-4 py-2 rounded-lg text-lg font-semibold ${
-              viewType === 5 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            5 Day
-          </button>
-          <button
-            onClick={() => setViewType(7)}
-            className={`px-4 py-2 rounded-lg text-lg font-semibold ${
-              viewType === 7 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            7 Day
-          </button>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-900 to-black text-gray-100 font-sans p-6 sm:p-10">
+      {/* Header */}
+      <header className="mb-10 flex items-center justify-between">
+        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text drop-shadow-xl">
+          NovaCal
+        </h1>
       </header>
 
-      <main className="bg-white rounded-lg shadow-xl p-6">
+      {/* Calendar */}
+      <main className="max-w-[1200px] mx-auto bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-3xl shadow-xl p-6 sm:p-10">
         <CalendarView viewType={viewType} tasks={tasks} onAddTask={addNewTask} />
       </main>
 
-      {/* Optional: Display current tasks for debugging */}
-      <div className="mt-8 p-4 bg-gray-100 rounded-lg">
-        <h2 className="text-xl font-bold mb-2">Current Tasks:</h2>
-        <pre className="whitespace-pre-wrap text-sm">{JSON.stringify(tasks, null, 2)}</pre>
-      </div>
+      {/* Debug Panel */}
+      <section className="mt-12 max-w-[1200px] mx-auto bg-slate-800 border border-slate-700 text-slate-300 rounded-2xl p-6 font-mono text-sm overflow-x-auto">
+        <h2 className="mb-4 text-lg font-semibold border-b border-slate-600 pb-2">
+          🐛 Debug: Current Tasks
+        </h2>
+        <pre>{JSON.stringify(tasks, null, 2)}</pre>
+      </section>
     </div>
   );
 }
-
-export default App;

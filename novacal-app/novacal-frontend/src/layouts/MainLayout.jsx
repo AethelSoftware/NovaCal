@@ -10,7 +10,7 @@ export default function MainLayout() {
     <div className="flex h-screen bg-gray-100">
       {/* UsageTracker is here because it's part of the persistent layout for routes using MainLayout */}
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="flex-1 overflow-y-auto">
         <Outlet /> {/* This is where the content of your specific pages will be rendered */}
       </main>
     </div>

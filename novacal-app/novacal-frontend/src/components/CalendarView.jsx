@@ -1,4 +1,4 @@
-// novacal-app/frontend/src/components/CalendarView.jsx
+// components/CalendarView.jsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   format,
@@ -12,23 +12,37 @@ import {
   getHours,
   getMinutes,
 } from "date-fns";
-
 import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
 
-// Constants
-const GRID_SLOT_HEIGHT_PX = 15; // 15 minutes = 15px height (4 per hour)
+const GRID_SLOT_HEIGHT_PX = 16;
 const GRID_MINUTES_PER_SLOT = 15;
 const HOURS_IN_DAY = 24;
 const VIEW_OPTIONS = [1, 3, 5, 7];
 
-function CalendarView({ tasks, onAddTask }) {
-  const [viewType, setViewType] = useState(3);
+const colors = {
+  background: "#121217",
+  border: "#2a2a40",
+  timeLabel: "#8a8ec6",
+  hoveredSlot: "rgba(121, 134, 203, 0.25)",
+  selectedSlot: "rgba(75, 172, 198, 0.5)",
+  taskBg: "linear-gradient(135deg, #623CEA 0%, #7F5AF0 100%)",
+  taskBorder: "#7F5AF0",
+  headerBg: "#1E1E2F",
+  dayLabel: "#a3a3f7",
+  navIcon: "#7F7FEB",
+  navIconHover: "#b3b3fc",
+  settingsBg: "#1c1c30",
+  settingsBorder: "#444478",
+  settingsOptionActive: "#7f5af0",
+  settingsOptionHover: "#2a2a40",
+};
+
+function CalendarView({ tasks, onAddTask, viewType: parentViewType }) {
+  const [viewType, setViewType] = useState(parentViewType || 3);
   const [startDay, setStartDay] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
-
   const [settingsOpen, setSettingsOpen] = useState(false);
-
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartTime, setDragStartTime] = useState(null);
   const [dragEndTime, setDragEndTime] = useState(null);
@@ -39,36 +53,15 @@ function CalendarView({ tasks, onAddTask }) {
     addDays(startDay, i)
   );
 
-  // Calculate snapped date from Y coordinate considering scroll offset
   function getSnappedSlotDate(yPx, columnDate) {
-    const calendarRect = calendarRef.current.getBoundingClientRect();
-    const scrollTop = calendarRef.current.scrollTop;
-    const relativeY = yPx - calendarRect.top + scrollTop;
-
-    const totalMinutesFromMidnight =
-      (relativeY / GRID_SLOT_HEIGHT_PX) * GRID_MINUTES_PER_SLOT;
-    const snappedMinutes =
-      Math.floor(totalMinutesFromMidnight / GRID_MINUTES_PER_SLOT) *
-      GRID_MINUTES_PER_SLOT;
-
-    const snappedDate = new Date(columnDate);
-    snappedDate.setHours(0, 0, 0, 0);
-    snappedDate.setMinutes(snappedMinutes);
-    return snappedDate;
-  }
-
-  function isSlotHovered(slotDate) {
-    return hoverTime && isEqual(slotDate, hoverTime);
-  }
-
-  function isSlotSelected(slotDate) {
-    if (!isDragging || !dragStartTime || !dragEndTime) return false;
-    let start = dragStartTime,
-      end = dragEndTime;
-    if (isAfter(start, end)) [start, end] = [end, start];
-
-    const rangeEnd = addMinutes(end, GRID_MINUTES_PER_SLOT);
-    return !isBefore(slotDate, start) && isBefore(slotDate, rangeEnd);
+    const rect = calendarRef.current.getBoundingClientRect();
+    const relativeY = yPx - rect.top + calendarRef.current.scrollTop;
+    const totalMinutes = (relativeY / GRID_SLOT_HEIGHT_PX) * GRID_MINUTES_PER_SLOT;
+    const snapped =
+      Math.floor(totalMinutes / GRID_MINUTES_PER_SLOT) * GRID_MINUTES_PER_SLOT;
+    const d = new Date(columnDate);
+    d.setHours(0, snapped, 0, 0);
+    return d;
   }
 
   const handleMouseDown = (e, slotDate) => {
@@ -78,6 +71,34 @@ function CalendarView({ tasks, onAddTask }) {
     setDragEndTime(slotDate);
   };
 
+  const handleMouseMove = (e, columnDate) => {
+    const snappedDate = getSnappedSlotDate(e.clientY, columnDate);
+    setHoverTime(snappedDate);
+    if (isDragging) setDragEndTime(snappedDate);
+  };
+
+  const handleMouseUp = () => {
+    if (!dragStartTime || !dragEndTime) return cleanUpDrag();
+    setIsDragging(false);
+    let start = dragStartTime;
+    let end = dragEndTime;
+    if (isAfter(start, end)) [start, end] = [end, start];
+    end = addMinutes(end, GRID_MINUTES_PER_SLOT);
+    if (!isEqual(startOfDay(start), startOfDay(end))) {
+      alert("Tasks must stay on the same day.");
+      return cleanUpDrag();
+    }
+    const name = prompt(`Task: ${format(start, "p")}–${format(end, "p")}`);
+    if (name)
+      onAddTask({
+        id: Date.now(), // temporary frontend id; backend will override returned id
+        name,
+        start: start.toISOString(),
+        end: end.toISOString(),
+      });
+    cleanUpDrag();
+  };
+
   const cleanUpDrag = () => {
     setIsDragging(false);
     setDragStartTime(null);
@@ -85,285 +106,258 @@ function CalendarView({ tasks, onAddTask }) {
     setHoverTime(null);
   };
 
-  const handleMouseUp = () => {
-    if (!isDragging || !dragStartTime || !dragEndTime) {
-      cleanUpDrag();
-      return;
-    }
-    setIsDragging(false);
-
-    let start = dragStartTime,
-      end = dragEndTime;
-    if (isAfter(start, end)) [start, end] = [end, start];
-    end = addMinutes(end, GRID_MINUTES_PER_SLOT);
-
-    if (isEqual(start, end)) {
-      end = addMinutes(start, GRID_MINUTES_PER_SLOT);
-    }
-
-    if (!isEqual(startOfDay(start), startOfDay(end))) {
-      alert("Tasks must start and end on the same day.");
-      cleanUpDrag();
-      return;
-    }
-
-    const taskName = prompt(
-      `New Task: ${format(start, "h:mm a")} – ${format(end, "h:mm a")}\nName:`
-    );
-    if (taskName) {
-      onAddTask({
-        id: Date.now(),
-        name: taskName,
-        start: start.toISOString(),
-        end: end.toISOString(),
-        duration: (end.getTime() - start.getTime()) / 60000,
-      });
-    }
-    cleanUpDrag();
-  };
-
-  const handleMouseMove = (e, columnDate) => {
-    if (!calendarRef.current) return;
-    const snappedDate = getSnappedSlotDate(e.clientY, columnDate);
-    setHoverTime(snappedDate);
-    if (isDragging) setDragEndTime(snappedDate);
-  };
-
-  const handleMouseLeaveColumn = () => {
-    setHoverTime(null);
-  };
-
   useEffect(() => {
-    const calendarElement = calendarRef.current;
-    if (!calendarElement) return;
-
-    calendarElement.addEventListener("mouseup", handleMouseUp);
-    calendarElement.addEventListener("mouseleave", cleanUpDrag);
+    const el = calendarRef.current;
+    el?.addEventListener("mouseup", handleMouseUp);
+    el?.addEventListener("mouseleave", cleanUpDrag);
     return () => {
-      calendarElement.removeEventListener("mouseup", handleMouseUp);
-      calendarElement.removeEventListener("mouseleave", cleanUpDrag);
+      el?.removeEventListener("mouseup", handleMouseUp);
+      el?.removeEventListener("mouseleave", cleanUpDrag);
     };
   }, [isDragging, dragStartTime, dragEndTime]);
 
-  // Navigation handlers
-  const goPrevious = () => {
-    setStartDay((prev) => addDays(prev, -viewType));
-  };
-  const goNext = () => {
-    setStartDay((prev) => addDays(prev, viewType));
-  };
-  const toggleSettings = () => {
-    setSettingsOpen((prev) => !prev);
-  };
-  const changeViewDays = (days) => {
-    setViewType(days);
-    setStartDay(startOfWeek(new Date(), { weekStartsOn: 1 }));
-    setSettingsOpen(false);
-  };
-
   return (
     <>
-      {/* Navigation bar */}
-      <div className="flex items-center space-x-2 mb-4 select-none relative">
+      {/* Navigation Bar */}
+      <nav
+        className="flex items-center gap-3 mb-4 font-semibold relative"
+        style={{ color: colors.navIcon }}
+      >
         <button
-          onClick={goPrevious}
-          aria-label="Previous days"
-          className="p-2 rounded hover:bg-gray-200 transition"
-          title={`Previous ${viewType} day${viewType > 1 ? "s" : ""}`}
+          onClick={() => setStartDay(addDays(startDay, -viewType))}
+          className="p-2 rounded transition-colors"
+          style={{ backgroundColor: "transparent" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = colors.navIconHover)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = colors.navIcon)}
+          aria-label="Previous"
           type="button"
         >
-          <ChevronLeft size={22} />
+          <ChevronLeft size={20} />
         </button>
 
         <button
-          onClick={goNext}
-          aria-label="Next days"
-          className="p-2 rounded hover:bg-gray-200 transition"
-          title={`Next ${viewType} day${viewType > 1 ? "s" : ""}`}
+          onClick={() => setStartDay(addDays(startDay, viewType))}
+          className="p-2 rounded transition-colors"
+          style={{ backgroundColor: "transparent" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = colors.navIconHover)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = colors.navIcon)}
+          aria-label="Next"
           type="button"
         >
-          <ChevronRight size={22} />
+          <ChevronRight size={20} />
         </button>
 
         <button
-          onClick={toggleSettings}
-          aria-label="Calendar view settings"
-          className="ml-auto p-2 rounded hover:bg-gray-200 transition relative"
-          title="Change visible days"
+          onClick={() => setSettingsOpen(!settingsOpen)}
+          className="ml-auto flex items-center gap-1 p-2 rounded cursor-pointer transition-colors"
+          style={{ backgroundColor: "transparent", color: colors.navIcon }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = colors.navIconHover)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = colors.navIcon)}
+          aria-label="Toggle View Settings"
           type="button"
         >
-          <Settings size={22} />
+          <Settings size={20} />
+          <span className="hidden md:inline select-none">View</span>
         </button>
 
         {settingsOpen && (
-          <div className="absolute top-full right-0 mt-2 bg-white border border-gray-300 rounded shadow-md p-3 w-40 z-40">
-            <div className="mb-2 font-semibold text-gray-700">Days to view</div>
-            {VIEW_OPTIONS.map((days) => (
+          <div
+            className="absolute top-full right-0 p-3 rounded shadow-xl z-50"
+            style={{
+              backgroundColor: colors.settingsBg,
+              border: `1px solid ${colors.settingsBorder}`,
+              width: 160,
+            }}
+          >
+            <p className="mb-2 font-semibold" style={{ color: colors.settingsOptionActive }}>
+              Days to View
+            </p>
+            {VIEW_OPTIONS.map((d) => (
               <button
-                key={days}
+                key={d}
+                onClick={() => {
+                  setViewType(d);
+                  setStartDay(startOfWeek(new Date(), { weekStartsOn: 1 }));
+                  setSettingsOpen(false);
+                }}
+                className="w-full text-left px-3 py-1 rounded mb-1 text-sm transition-colors"
+                style={{
+                  color: viewType === d ? "#fff" : colors.timeLabel,
+                  backgroundColor: viewType === d ? colors.settingsOptionActive : "transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (viewType !== d) e.currentTarget.style.backgroundColor = colors.settingsOptionHover;
+                  e.currentTarget.style.color = "#fff";
+                }}
+                onMouseLeave={(e) => {
+                  if (viewType !== d) e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = viewType === d ? "#fff" : colors.timeLabel;
+                }}
                 type="button"
-                onClick={() => changeViewDays(days)}
-                className={`block w-full text-left px-3 py-2 rounded hover:bg-blue-100 transition ${
-                  viewType === days
-                    ? "font-bold text-blue-700 bg-blue-50"
-                    : "text-gray-700"
-                }`}
               >
-                {days} day{days > 1 ? "s" : ""}
+                {d} day{d > 1 ? "s" : ""}
               </button>
             ))}
           </div>
         )}
-      </div>
+      </nav>
 
       {/* Calendar Grid */}
       <div
         ref={calendarRef}
-        className="relative grid border border-gray-300 rounded-lg overflow-hidden max-h-[calc(100vh-150px)] overflow-y-auto select-none"
-        style={{ gridTemplateColumns: `auto repeat(${viewType}, 1fr)` }}
+        className="grid border rounded-xl overflow-y-auto shadow-inner"
+        style={{
+          gridTemplateColumns: `64px repeat(${viewType}, 1fr)`,
+          height: "calc(100vh - 160px)",
+          backgroundColor: colors.background,
+          borderColor: colors.border,
+        }}
       >
         {/* Time Column */}
-        <div className="flex flex-col border-r border-gray-300 bg-gray-50 sticky left-0 top-0 z-20 shadow-md">
-          <div className="h-16 flex items-center justify-center text-sm font-semibold text-gray-600 border-b border-gray-300">
+        <div
+          className="sticky left-0 top-0 z-20 border-r"
+          style={{
+            backgroundColor: colors.headerBg,
+            borderColor: colors.border,
+            boxShadow: "2px 0 6px rgba(0,0,0,0.8)",
+            userSelect: "none",
+          }}
+        >
+          <div
+            className="h-16 flex items-center justify-center text-xs font-semibold"
+            style={{ color: colors.timeLabel, borderBottom: `1px solid ${colors.border}` }}
+          >
             Time
           </div>
           {Array.from({ length: HOURS_IN_DAY }).map((_, hour) => (
             <div
               key={hour}
-              className="relative border-t border-gray-400"
-              style={{ height: GRID_SLOT_HEIGHT_PX * 4 }}
+              className="relative border-t flex items-center justify-center"
+              style={{
+                height: GRID_SLOT_HEIGHT_PX * 4,
+                borderColor: colors.border,
+                color: colors.timeLabel,
+                fontSize: 10,
+                fontWeight: 600,
+                userSelect: "none",
+              }}
+              aria-hidden="true"
             >
-              <span className="absolute -top-1 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 pointer-events-none select-none">
-                {format(new Date().setHours(hour, 0, 0, 0), "h a")}
+              <span className="absolute -top-1" style={{ color: colors.timeLabel }}>
+                {format(new Date().setHours(hour, 0, 0, 0), "ha")}
               </span>
             </div>
           ))}
         </div>
 
-        {/* Day Columns */}
+        {/* Days Columns */}
         {daysToShow.map((date, idx) => (
           <div
             key={idx}
-            className="calendar-column flex flex-col border-r border-gray-300"
-            data-date={date.toISOString()}
+            className="calendar-column relative flex flex-col border-r"
+            onMouseLeave={() => setHoverTime(null)}
+            style={{ backgroundColor: colors.background, borderColor: colors.border }}
           >
-            {/* Day Header */}
-            <div className="h-16 flex flex-col items-center justify-center text-sm font-semibold text-gray-800 border-b border-gray-300 bg-blue-50 sticky top-0 z-10 shadow-sm select-none">
-              <span>{format(date, "EEE")}</span>
-              <span className="text-xl font-bold">{format(date, "MMM d")}</span>
+            {/* Header */}
+            <div
+              className="sticky top-0 z-10 border-b flex flex-col items-center justify-center text-center"
+              style={{
+                height: 64,
+                backgroundColor: colors.headerBg,
+                borderColor: colors.border,
+                userSelect: "none",
+                color: colors.dayLabel,
+                fontWeight: 600,
+              }}
+            >
+              <span className="uppercase text-xs">{format(date, "EEE")}</span>
+              <span className="mt-1 text-lg font-bold text-white">
+                {format(date, "MMM d")}
+              </span>
             </div>
 
             {/* Time Slots */}
-            <div className="relative flex-grow">
-              {Array.from({ length: HOURS_IN_DAY }).map((_, hour) =>
-                Array.from({ length: 4 }).map((_, quarter) => {
-                  const slotDate = new Date(date);
-                  slotDate.setHours(hour, quarter * GRID_MINUTES_PER_SLOT, 0, 0);
+            <div className="relative flex-grow select-none">
+              {Array.from({ length: HOURS_IN_DAY * 4 }).map((_, i) => {
+                const slotDate = new Date(date);
+                slotDate.setHours(0, i * GRID_MINUTES_PER_SLOT, 0, 0);
 
+                const isHovered = hoverTime && isEqual(slotDate, hoverTime);
+
+                const isSelected = (() => {
+                  if (!isDragging || !dragStartTime || !dragEndTime) return false;
+                  let [start, end] = [dragStartTime, dragEndTime];
+                  if (isAfter(start, end)) [start, end] = [end, start];
                   return (
-                    <div
-                      key={`${hour}-${quarter}`}
-                      onMouseDown={(e) => handleMouseDown(e, slotDate)}
-                      onMouseMove={(e) => handleMouseMove(e, date)}
-                      onMouseEnter={() => setHoverTime(slotDate)}
-                      onMouseLeave={handleMouseLeaveColumn}
-                      className={`border-b border-gray-200 cursor-pointer transition-colors duration-150
-                        ${
-                          isSlotSelected(slotDate)
-                            ? "bg-blue-200 opacity-90"
-                            : isSlotHovered(slotDate)
-                            ? "bg-gray-100 opacity-80"
-                            : ""
-                        }`}
-                      style={{ height: GRID_SLOT_HEIGHT_PX }}
-                      role="button"
-                      tabIndex={-1}
-                      aria-label={`Time slot starting at ${format(
-                        slotDate,
-                        "h:mm a"
-                      )} on ${format(slotDate, "MMM d, yyyy")}`}
-                    />
+                    !isBefore(slotDate, start) &&
+                    isBefore(slotDate, addMinutes(end, GRID_MINUTES_PER_SLOT))
                   );
-                })
-              )}
+                })();
 
-              {/* Hour Horizontal Lines */}
-              {Array.from({ length: HOURS_IN_DAY }).map((_, hour) => (
-                <div
-                  key={`line-${hour}`}
-                  className="absolute left-0 right-0 border-t border-gray-400 pointer-events-none"
-                  style={{ top: hour * GRID_SLOT_HEIGHT_PX * 4 }}
-                  aria-hidden="true"
-                />
-              ))}
+                return (
+                  <div
+                    key={i}
+                    onMouseDown={(e) => handleMouseDown(e, slotDate)}
+                    onMouseMove={(e) => handleMouseMove(e, date)}
+                    className="border-t cursor-pointer transition-colors"
+                    style={{
+                      height: GRID_SLOT_HEIGHT_PX,
+                      borderColor: colors.border,
+                      backgroundColor: isSelected
+                        ? colors.selectedSlot
+                        : isHovered
+                        ? colors.hoveredSlot
+                        : "transparent",
+                      transition: "background-color 0.15s ease",
+                    }}
+                    aria-label={`Time slot ${format(slotDate, "p")}`}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleMouseDown(e, slotDate);
+                    }}
+                  />
+                );
+              })}
 
-              {/* Existing Tasks */}
+              {/* Tasks */}
               {tasks
-                .filter((task) =>
-                  isEqual(startOfDay(new Date(task.start)), startOfDay(date))
-                )
+                .filter((t) => isEqual(startOfDay(new Date(t.start)), startOfDay(date)))
                 .map((task) => {
-                  const taskStart = new Date(task.start);
-                  const taskEnd = new Date(task.end);
-                  const startMinutes =
-                    getHours(taskStart) * 60 + getMinutes(taskStart);
-                  const durationMinutes =
-                    (taskEnd.getTime() - taskStart.getTime()) / 60000;
-
-                  const top = (startMinutes / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
-                  const height = (durationMinutes / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
+                  const start = new Date(task.start);
+                  const end = new Date(task.end);
+                  const top =
+                    ((getHours(start) * 60 + getMinutes(start)) / GRID_MINUTES_PER_SLOT) *
+                    GRID_SLOT_HEIGHT_PX;
+                  const height =
+                    ((end - start) / 60000 / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
 
                   return (
                     <div
                       key={task.id}
-                      className="absolute inset-x-1 bg-purple-600 text-white text-xs p-1 rounded-md overflow-hidden shadow-sm z-20 flex flex-col justify-center"
-                      style={{ top: top, height: height }}
-                      aria-label={`${task.name} from ${format(
-                        taskStart,
-                        "h:mm a"
-                      )} to ${format(taskEnd, "h:mm a")}`}
-                      role="group"
+                      className="absolute left-1 right-1 z-20 rounded-md text-white p-1 font-semibold shadow-lg cursor-pointer select-text"
+                      style={{
+                        top,
+                        height,
+                        backgroundImage: colors.taskBg,
+                        border: `1.5px solid ${colors.taskBorder}`,
+                        boxShadow:
+                          "0 2px 6px rgba(127, 90, 240, 0.6), inset 0 0 8px rgba(255,255,255,0.15)",
+                        overflow: "hidden",
+                        userSelect: "text",
+                      }}
+                      title={`${task.name}: ${format(start, "p")} – ${format(end, "p")}`}
                     >
-                      <span className="font-semibold truncate">{task.name}</span>
-                      <span className="opacity-80 text-[0.6rem] truncate">
-                        {format(taskStart, "h:mm a")} - {format(taskEnd, "h:mm a")}
-                      </span>
+                      <div className="truncate">{task.name}</div>
+                      <div
+                        className="text-[10px] opacity-90"
+                        style={{ color: "rgba(255, 255, 255, 0.85)" }}
+                      >
+                        {format(start, "p")} - {format(end, "p")}
+                      </div>
                     </div>
                   );
                 })}
-
-              {/* Drag Preview Block */}
-              {isDragging &&
-                dragStartTime &&
-                dragEndTime &&
-                isEqual(startOfDay(dragStartTime), startOfDay(date)) && (
-                  (() => {
-                    let start = dragStartTime,
-                      end = dragEndTime;
-                    if (isAfter(start, end)) [start, end] = [end, start];
-                    end = addMinutes(end, GRID_MINUTES_PER_SLOT);
-
-                    const startMinutes =
-                      getHours(start) * 60 + getMinutes(start);
-                    const duration =
-                      (end.getTime() - start.getTime()) / 60000;
-
-                    const top = (startMinutes / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
-                    const height = (duration / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
-
-                    return (
-                      <div
-                        className="absolute inset-x-1 bg-blue-600/90 text-white text-[11px] p-1 rounded-md border-2 border-blue-700 border-dashed z-30 pointer-events-none flex flex-col justify-center"
-                        style={{ top: top, height: height }}
-                        aria-hidden="true"
-                      >
-                        <span className="font-semibold">
-                          {format(start, "h:mm a")} – {format(end, "h:mm a")}
-                        </span>
-                      </div>
-                    );
-                  })()
-                )}
             </div>
           </div>
         ))}

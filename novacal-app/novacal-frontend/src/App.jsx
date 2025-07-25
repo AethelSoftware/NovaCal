@@ -42,7 +42,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-900 to-black text-gray-100 font-sans p-6 sm:p-10">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-900 to-black text-gray-100 font-sans">
       {/* Header */}
       <header className="mb-10 flex items-center justify-between">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text drop-shadow-xl">

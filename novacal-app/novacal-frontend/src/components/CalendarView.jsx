@@ -19,13 +19,14 @@ const GRID_MINUTES_PER_SLOT = 15;
 const HOURS_IN_DAY = 24;
 const VIEW_OPTIONS = [1, 3, 5, 7];
 
+// Color palette inspired by Reclaim's vibrant pastel yet dark friendly palette
 const colors = {
   background: "#121217",
   border: "#2a2a40",
   timeLabel: "#8a8ec6",
-  hoveredSlot: "rgba(121, 134, 203, 0.25)",
-  selectedSlot: "rgba(75, 172, 198, 0.5)",
-  taskBg: "linear-gradient(135deg, #623CEA 0%, #7F5AF0 100%)",
+  hoveredSlot: "rgba(121, 134, 203, 0.25)", // soft indigo
+  selectedSlot: "rgba(75, 172, 198, 0.5)", // bright cyan
+  taskBg: "linear-gradient(135deg, #623CEA 0%, #7F5AF0 100%)", // purple gradient
   taskBorder: "#7F5AF0",
   headerBg: "#1E1E2F",
   dayLabel: "#a3a3f7",
@@ -36,6 +37,124 @@ const colors = {
   settingsOptionActive: "#7f5af0",
   settingsOptionHover: "#2a2a40",
 };
+
+// Modal component to enter additional task info after drag select
+function Modal({ isOpen, onClose, onSubmit, initialName, initialStart, initialEnd }) {
+  const [name, setName] = useState(initialName || "");
+  const [description, setDescription] = useState("");
+  const [links, setLinks] = useState("");
+  const [files, setFiles] = useState(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(initialName || "");
+      setDescription("");
+      setLinks("");
+      setFiles(null);
+    }
+  }, [isOpen, initialName]);
+
+  const handleFileChange = (e) => {
+    setFiles(e.target.files);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Prepare task data; files are included but no upload handling yet
+    onSubmit({
+      name: name.trim(),
+      description: description.trim(),
+      links: links.trim(),
+      files,
+      start: initialStart.toISOString(),
+      end: initialEnd.toISOString(),
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-zinc-900 rounded-lg p-6 max-w-md w-full space-y-4 shadow-lg text-white"
+        aria-modal="true"
+        role="dialog"
+        aria-labelledby="modal-title"
+      >
+        <h2 id="modal-title" className="text-xl font-bold text-indigo-400 mb-4">
+          Add Task Details
+        </h2>
+
+        <label className="block">
+          <span className="text-indigo-200">Task Name</span>
+          <input
+            type="text"
+            required
+            maxLength={100}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
+            autoFocus
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-indigo-200">Description</span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white resize-y"
+            placeholder="Add a description (optional)"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-indigo-200">Links (comma separated URLs)</span>
+          <input
+            type="text"
+            value={links}
+            onChange={(e) => setLinks(e.target.value)}
+            className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
+            placeholder="https://example.com, https://docs.com"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-indigo-200">Attach files (optional)</span>
+          <input
+            type="file"
+            multiple
+            onChange={handleFileChange}
+            className="mt-1 block w-full text-indigo-100"
+          />
+          {files && files.length > 0 && (
+            <p className="mt-1 text-sm text-indigo-300">
+              {files.length} file{files.length > 1 ? "s" : ""} selected
+            </p>
+          )}
+        </label>
+
+        <div className="flex justify-end space-x-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded bg-zinc-700 hover:bg-zinc-600 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 transition font-semibold"
+          >
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 function CalendarView({ tasks, onAddTask, viewType: parentViewType }) {
   const [viewType, setViewType] = useState(parentViewType || 3);
@@ -48,6 +167,9 @@ function CalendarView({ tasks, onAddTask, viewType: parentViewType }) {
   const [dragEndTime, setDragEndTime] = useState(null);
   const [hoverTime, setHoverTime] = useState(null);
   const calendarRef = useRef(null);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [pendingTaskData, setPendingTaskData] = useState(null);
 
   const daysToShow = Array.from({ length: viewType }).map((_, i) =>
     addDays(startDay, i)
@@ -80,22 +202,20 @@ function CalendarView({ tasks, onAddTask, viewType: parentViewType }) {
   const handleMouseUp = () => {
     if (!dragStartTime || !dragEndTime) return cleanUpDrag();
     setIsDragging(false);
+
     let start = dragStartTime;
     let end = dragEndTime;
     if (isAfter(start, end)) [start, end] = [end, start];
     end = addMinutes(end, GRID_MINUTES_PER_SLOT);
+
     if (!isEqual(startOfDay(start), startOfDay(end))) {
       alert("Tasks must stay on the same day.");
       return cleanUpDrag();
     }
-    const name = prompt(`Task: ${format(start, "p")}–${format(end, "p")}`);
-    if (name)
-      onAddTask({
-        id: Date.now(), // temporary frontend id; backend will override returned id
-        name,
-        start: start.toISOString(),
-        end: end.toISOString(),
-      });
+
+    // Open modal to enter more details instead of prompt
+    setPendingTaskData({ start, end, name: "" });
+    setModalOpen(true);
     cleanUpDrag();
   };
 
@@ -104,6 +224,18 @@ function CalendarView({ tasks, onAddTask, viewType: parentViewType }) {
     setDragStartTime(null);
     setDragEndTime(null);
     setHoverTime(null);
+  };
+
+  const handleModalSubmit = (taskDetails) => {
+    if (!taskDetails.name) {
+      alert("Task name is required.");
+      return;
+    }
+    // Extend your onAddTask to accept taskDetails with description, links, files as needed
+    onAddTask(taskDetails);
+
+    setModalOpen(false);
+    setPendingTaskData(null);
   };
 
   useEffect(() => {
@@ -118,7 +250,7 @@ function CalendarView({ tasks, onAddTask, viewType: parentViewType }) {
 
   return (
     <>
-      {/* Navigation Bar */}
+      {/* Navigation */}
       <nav
         className="flex items-center gap-3 mb-4 font-semibold relative"
         style={{ color: colors.navIcon }}
@@ -320,9 +452,11 @@ function CalendarView({ tasks, onAddTask, viewType: parentViewType }) {
                 );
               })}
 
-              {/* Tasks */}
+              {/* Task Blocks */}
               {tasks
-                .filter((t) => isEqual(startOfDay(new Date(t.start)), startOfDay(date)))
+                .filter((t) =>
+                  isEqual(startOfDay(new Date(t.start)), startOfDay(date))
+                )
                 .map((task) => {
                   const start = new Date(task.start);
                   const end = new Date(task.end);
@@ -349,6 +483,15 @@ function CalendarView({ tasks, onAddTask, viewType: parentViewType }) {
                       title={`${task.name}: ${format(start, "p")} – ${format(end, "p")}`}
                     >
                       <div className="truncate">{task.name}</div>
+                      {task.description && (
+                        <div
+                          className="text-[10px] opacity-80 italic truncate"
+                          style={{ color: "rgba(255, 255, 255, 0.75)" }}
+                          title={task.description}
+                        >
+                          {task.description}
+                        </div>
+                      )}
                       <div
                         className="text-[10px] opacity-90"
                         style={{ color: "rgba(255, 255, 255, 0.85)" }}
@@ -362,6 +505,19 @@ function CalendarView({ tasks, onAddTask, viewType: parentViewType }) {
           </div>
         ))}
       </div>
+
+      {/* Task Details Entry Modal */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setPendingTaskData(null);
+        }}
+        onSubmit={handleModalSubmit}
+        initialName={pendingTaskData?.name}
+        initialStart={pendingTaskData?.start}
+        initialEnd={pendingTaskData?.end}
+      />
     </>
   );
 }

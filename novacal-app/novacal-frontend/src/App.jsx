@@ -1,92 +1,60 @@
+// novacal-app/frontend/src/App.jsx
 import React, { useState } from 'react';
+import CalendarView from './components/CalendarView';
 
 function App() {
-  const [tasks, setTasks] = useState([]);
-  const [newTaskName, setNewTaskName] = useState('');
-  const [newTaskDuration, setNewTaskDuration] = useState('');
-  const [scheduledTasks, setScheduledTasks] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [viewType, setViewType] = useState(7); // Default to 7-day view
+  const [tasks, setTasks] = useState([]); // This will store your tasks
 
-  const handleAddTask = () => {
-    if (newTaskName && newTaskDuration) {
-      setTasks([...tasks, { name: newTaskName, duration: parseInt(newTaskDuration) }]);
-      setNewTaskName('');
-      setNewTaskDuration('');
-    }
-  };
-
-  const handleSchedule = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/schedule', { // This hits the Vite proxy, then Flask
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ tasks }),
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      setScheduledTasks(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  // Function to add a new task (called from CalendarView)
+  const addNewTask = (newTask) => {
+    console.log("Adding new task:", newTask);
+    setTasks((prevTasks) => [...prevTasks, newTask]);
+    // In a real app, you'd send this to your Flask backend here
+    // fetch('/api/tasks', { method: 'POST', body: JSON.stringify(newTask) })
   };
 
   return (
-    <div>
-      <h1 className='text-blue-300'>Calendar Scheduler</h1>
+    <div className="min-h-screen bg-gray-50 p-4 font-sans">
+      <header className="flex justify-between items-center mb-6">
+        <h1 className="text-4xl font-bold text-gray-800">NovaCal</h1>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setViewType(3)}
+            className={`px-4 py-2 rounded-lg text-lg font-semibold ${
+              viewType === 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            3 Day
+          </button>
+          <button
+            onClick={() => setViewType(5)}
+            className={`px-4 py-2 rounded-lg text-lg font-semibold ${
+              viewType === 5 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            5 Day
+          </button>
+          <button
+            onClick={() => setViewType(7)}
+            className={`px-4 py-2 rounded-lg text-lg font-semibold ${
+              viewType === 7 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            7 Day
+          </button>
+        </div>
+      </header>
 
-      <h2>Add Tasks</h2>
-      <div>
-        <input
-          type="text"
-          placeholder="Task Name"
-          value={newTaskName}
-          onChange={(e) => setNewTaskName(e.target.value)}
-        />
-        <input
-          type="number"
-          placeholder="Duration (minutes)"
-          value={newTaskDuration}
-          onChange={(e) => setNewTaskDuration(e.target.value)}
-        />
-        <button onClick={handleAddTask}>Add Task</button>
+      <main className="bg-white rounded-lg shadow-xl p-6">
+        <CalendarView viewType={viewType} tasks={tasks} onAddTask={addNewTask} />
+      </main>
+
+      {/* Optional: Display current tasks for debugging */}
+      <div className="mt-8 p-4 bg-gray-100 rounded-lg">
+        <h2 className="text-xl font-bold mb-2">Current Tasks:</h2>
+        <pre className="whitespace-pre-wrap text-sm">{JSON.stringify(tasks, null, 2)}</pre>
       </div>
-
-      <h3>Current Tasks:</h3>
-      <ul>
-        {tasks.map((task, index) => (
-          <li key={index}>
-            {task.name} ({task.duration} mins)
-          </li>
-        ))}
-      </ul>
-
-      <button onClick={handleSchedule} disabled={loading || tasks.length === 0}>
-        {loading ? 'Scheduling...' : 'Run Scheduling Algorithm'}
-      </button>
-
-      {error && <p style={{ color: 'red' }}>Error: {error}</p>}
-
-      <h2>Scheduled Calendar:</h2>
-      {scheduledTasks.length > 0 ? (
-        <ul>
-          {scheduledTasks.map((task) => (
-            <li key={task.id}>
-              {task.name}: {task.start_time} (Duration: {task.duration} mins)
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No tasks scheduled yet.</p>
-      )}
     </div>
   );
 }

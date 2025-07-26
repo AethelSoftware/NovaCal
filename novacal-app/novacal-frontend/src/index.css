@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+/* Add to your global CSS or component CSS */
+.calendar-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  background: #181926;
+}
+.calendar-scrollbar::-webkit-scrollbar-thumb {
+  background: #7F5AF0;
+  border-radius: 8px;
+  border: 2px solid #181926;
+}
+.calendar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #623CEA;
+}
+

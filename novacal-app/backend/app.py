@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Database setup
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///tasks.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///users.db")
 engine = create_engine(DATABASE_URL, echo=True)
 metadata = MetaData()
 
@@ -92,6 +92,76 @@ def create_task():
         ),
         201,
     )
+
+@app.route("/api/tasks/<int:task_id>", methods=["PATCH"])
+def update_task(task_id):
+    data = request.json
+    session = Session()
+    try:
+        # Fetch the existing task
+        task = session.execute(tasks_table.select().where(tasks_table.c.id == task_id)).first()
+        if not task:
+            session.close()
+            return jsonify({"error": "Task not found"}), 404
+
+        update_data = {}
+
+        # Update fields if they exist in the received JSON data
+        if "name" in data:
+            update_data["title"] = data["name"]
+
+        if "start" in data:
+            try:
+                update_data["start_time"] = datetime.fromisoformat(data["start"])
+            except Exception:
+                session.close()
+                return jsonify({"error": "Invalid start date format"}), 400
+
+        if "end" in data:
+            try:
+                update_data["end_time"] = datetime.fromisoformat(data["end"])
+            except Exception:
+                session.close()
+                return jsonify({"error": "Invalid end date format"}), 400
+
+        if "description" in data:
+            update_data["description"] = data["description"]
+
+        if "links" in data:
+            update_data["links"] = data["links"]
+
+        if "files" in data:
+            update_data["files"] = data["files"]
+
+        if update_data:
+            session.execute(
+                tasks_table.update()
+                .where(tasks_table.c.id == task_id)
+                .values(**update_data)
+            )
+            session.commit()
+
+        # Fetch updated task to return fresh data
+        updated_task = session.execute(tasks_table.select().where(tasks_table.c.id == task_id)).first()
+        session.close()
+
+        return jsonify(
+            {
+                "id": updated_task.id,
+                "name": updated_task.title,
+                "start": updated_task.start_time.isoformat(),
+                "end": updated_task.end_time.isoformat(),
+                "description": updated_task.description or "",
+                "links": updated_task.links or "",
+                "files": updated_task.files or "",
+            }
+        )
+
+    except Exception as e:
+        session.rollback()
+        session.close()
+        return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":

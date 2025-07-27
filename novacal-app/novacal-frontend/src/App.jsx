@@ -220,9 +220,25 @@ function Sidebar({
 
 
  const now = new Date();
- const upcomingTasks = tasks
-   ? tasks.filter((task) => new Date(task.end) > now).sort((a, b) => new Date(a.start) - new Date(b.start))
-   : [];
+  const upcomingTasks = tasks.filter(task => new Date(task.end) > now).sort((a, b) => new Date(a.start) - new Date(b.start));
+
+const binderTabColors = [
+  "#7c3aed", // purple-600
+  "#dc2626", // red-600
+  "#16a34a", // green-600
+  "#eab308", // yellow-600
+  "#2563eb", // blue-600
+  "#d97706", // amber-600
+  "#0d9488", // teal-600
+  "#4f46e5", // indigo-600
+  "#db2777", // pink-600
+  "#059669", // emerald-600
+  "#b91c1c", // red-700
+  "#9333ea", // purple-700
+  "#047857", // emerald-700
+  "#0369a1", // sky-700
+  "#ca8a04", // yellow-700
+];
 
 
  const handleFileChange = (e) => setFiles(e.target.files);
@@ -258,9 +274,9 @@ function Sidebar({
 
  return (
    <div
-     className="fixed top-0 right-0 h-full w-80 bg-[#1c1c30] shadow-xl z-50 border-l border-[#444478] transition-transform duration-300"
-     style={{ transform: isOpen ? "translateX(0)" : "translateX(100%)", backdropFilter: "blur(8px)" }}
-   >
+    className="fixed top-0 right-0 h-full w-[400px] bg-[#18182b] shadow-xl z-50 border-l border-[#444478] transition-transform duration-300"
+    style={{ transform: isOpen ? "translateX(0)" : "translateX(100%)", backdropFilter: "blur(8px)" }}
+  >
      <div className="flex justify-between items-center p-4 border-b border-[#444478]">
        <div className="flex space-x-2">
          <button
@@ -293,59 +309,101 @@ function Sidebar({
 
 
      {activeTab === "upcoming" && (
-       <div className="overflow-y-auto h-[calc(100%-56px)] p-4 space-y-4">
-         {upcomingTasks.length === 0 ? (
-           <p className="text-center text-gray-400 select-none">No upcoming tasks</p>
-         ) : (
-           upcomingTasks.map((task) => {
-             const start = new Date(task.start);
-             const end = new Date(task.end);
-             return (
-               <div
-                 key={task.id}
-                 className="bg-[#29293d] rounded-md p-3 select-text shadow-sm"
-                 title={`${task.name}: ${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
-               >
-                 <div className="font-semibold text-[#d0d0ff] truncate">{task.name}</div>
-                 {task.description && (
-                   <div className="text-xs italic truncate mt-1 text-[#a0a0c0]">
-                     {task.description}
-                   </div>
-                 )}
-                 <div className="text-xs mt-1 text-[#d0d0ff] opacity-80">
-                   {start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} –{" "}
-                   {end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                 </div>
-               </div>
-             );
-           })
-         )}
-       </div>
-     )}
+      <div className="overflow-y-auto h-[calc(100%-56px)] p-6 space-y-4">
+        {upcomingTasks.length === 0 ? (
+            <p className="text-center text-gray-400 select-none mt-8">No upcoming tasks</p>
+          ) : (
+            upcomingTasks.map((task) => {
+              // Assign a color deterministically by id for consistency:
+              const hash = typeof task.id === "string"
+                ? task.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0)
+                : Number(task.id);
+              const colorIdx = Math.abs(hash) % binderTabColors.length;
+              const previewBgColor = binderTabColors[colorIdx];
+              const start = new Date(task.start);
+              const end = new Date(task.end);
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => {
+                    setActiveTab("tasks");
+                    setSelectedTask(task);
+                  }}
+                  type="button"
+                  className="w-full text-left rounded-xl hover:brightness-110 border border-[#363678] shadow-sm transition flex flex-col gap-1 px-5 py-4"
+                  style={{ background: previewBgColor }}
+                >
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-white text-base truncate max-w-[70%]">
+                    {task.name.length > 28 ? task.name.slice(0, 28) + "…" : task.name}
+                  </span>
+                  <span className="ml-auto rounded-full px-2 py-0.5 text-xs bg-[#1d1d36] text-indigo-200 font-mono">
+                    {format(start, "MM/dd")}
+                  </span>
+                </div>
+                {task.description && (
+                  <div
+                    className="text-sm italic text-[#a0a0c0] truncate max-w-full"
+                    title={task.description}
+                  >
+                    {task.description.length > 48 ? task.description.slice(0, 48) + "…" : task.description}
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-xs text-indigo-200 mt-1">
+                  <span>
+                    {format(start, "EEE h:mmaaa")} – {format(end, "h:mmaaa")}
+                  </span>
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
+    )}
+
 
 
      {activeTab === "tasks" && (
        <div className="flex h-[calc(100%-56px)]">
          <nav className="w-1/3 border-r border-[#444478] overflow-y-auto p-2">
-           {upcomingTasks.length === 0 ? (
-             <p className="text-gray-400 text-center mt-4">No tasks available</p>
-           ) : (
-             upcomingTasks.map((task) => (
-               <button
-                 key={task.id}
-                 onClick={() => setSelectedTask(task)}
-                 type="button"
-                 className={`block w-full text-left mb-1 p-2 rounded ${
-                   selectedTask?.id === task.id
-                     ? "bg-sky-700 text-white"
-                     : "text-gray-300 hover:bg-slate-700"
-                 } truncate`}
-               >
-                 {task.name}
-               </button>
-             ))
-           )}
-         </nav>
+          {upcomingTasks.length === 0 ? (
+            <p className="text-gray-400 text-center mt-4">No tasks available</p>
+          ) : (
+            upcomingTasks.map((task) => {
+              const hash =
+                typeof task.id === "string"
+                  ? task.id
+                      .split("")
+                      .reduce((acc, c) => acc + c.charCodeAt(0), 0)
+                  : Number(task.id);
+              const colorIndex = Math.abs(hash) % binderTabColors.length;
+              const bgColor = binderTabColors[colorIndex];
+
+              const isSelected = selectedTask?.id === task.id;
+
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => setSelectedTask(task)}
+                  type="button"
+                  className={`block w-full text-left mb-1 p-2 rounded truncate font-semibold shadow-md transition-transform duration-150 focus:outline-none ${
+                    isSelected
+                      ? "scale-105"
+                      : "hover:scale-105 hover:shadow-lg"
+                  }`}
+                  style={{
+                    backgroundColor: bgColor,
+                    color: "white",
+                    border: isSelected ? "2px solid white" : "none",
+                  }}
+                >
+                  {task.name}
+                </button>
+              );
+            })
+          )}
+        </nav>
+
          <div className="flex-grow overflow-y-auto p-4 space-y-4">
            {selectedTask ? (
              <>
@@ -386,7 +444,7 @@ function Sidebar({
                    type="file"
                    multiple
                    onChange={handleFileChange}
-                   className="mt-1 block bg-orange-700 p-2 rounded-xl hover:bg-orange-600 duration-300 cursor-pointer"
+                   className="mt-1 w-full block bg-orange-700 p-2 rounded-xl hover:bg-orange-600 duration-300 cursor-pointer"
                  />
                  {files && files.length > 0 && (
                    <p className="mt-1 text-sm text-indigo-300">
@@ -420,10 +478,6 @@ function Sidebar({
    </div>
  );
 }
-
-
-
-
 
 
 export default function App() {
@@ -724,7 +778,7 @@ export default function App() {
            height: "calc(100vh - 64px)",
            backgroundColor: colors.background,
            borderColor: colors.border,
-           marginRight: sidebarOpen ? 288 : 0,
+           marginRight: sidebarOpen ? 385 : 0,
          }}
        >
          {/* Time Column */}

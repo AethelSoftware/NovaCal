@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   format,
   addDays,
@@ -12,6 +12,7 @@ import {
   startOfDay,
   getHours,
   getMinutes,
+  differenceInMinutes,
 } from "date-fns";
 import {
   ChevronLeft,
@@ -20,6 +21,10 @@ import {
   X,
   PanelLeftClose,
   PanelRightClose,
+  Plus,
+  ZapOff,
+  Zap,
+  AlertTriangle,
 } from "lucide-react";
 
 const GRID_SLOT_HEIGHT_PX = 16;
@@ -62,7 +67,6 @@ function toLocalISOString(date) {
     ":00"
   );
 }
-
 // Modal unchanged - no time editing here
 function Modal({ isOpen, onClose, onSubmit, initialName, initialStart, initialEnd }) {
   const [name, setName] = useState(initialName || "");
@@ -182,6 +186,296 @@ function Modal({ isOpen, onClose, onSubmit, initialName, initialStart, initialEn
   );
 }
 
+function CreateTaskModal({ isOpen, onClose, onSubmit }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [links, setLinks] = useState("");
+  const [files, setFiles] = useState(null);
+  const [start, setStart] = useState(() => format(new Date(), "yyyy-MM-dd'T'HH:mm"));
+  const [due, setDue] = useState(() => format(addMinutes(new Date(), 720), "yyyy-MM-dd'T'HH:mm")); // 12hr later
+  const [length, setLength] = useState(60); // min
+  const [importance, setImportance] = useState(2);
+
+  // Split block state
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [blockDuration, setBlockDuration] = useState(30); // Minutes
+
+  useEffect(() => {
+    if (isOpen) {
+      setName("");
+      setDescription("");
+      setLinks("");
+      setFiles(null);
+      setStart(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
+      setDue(format(addMinutes(new Date(), 720), "yyyy-MM-dd'T'HH:mm"));
+      setLength(60);
+      setImportance(2);
+      setSplitEnabled(false);
+      setBlockDuration(30);
+    }
+  }, [isOpen]);
+
+  // Split preview: breaks up the length (not interval from start to due!)
+  const timeBlocks = useMemo(() => {
+    const blocks = [];
+    if (!splitEnabled || length < 1) return blocks;
+    try {
+      // Compute blocks, starting at `start`
+      let total = Number(length);
+      let cursor = new Date(start);
+      let count = 0;
+      while (total > 0 && count < 100) {
+        let min = Math.min(blockDuration, total);
+        let blockEnd = addMinutes(cursor, min);
+        blocks.push({
+          start: format(cursor, "yyyy-MM-dd'T'HH:mm:ss"), // Use ISO string for backend
+          end: format(blockEnd, "yyyy-MM-dd'T'HH:mm:ss"), // Use ISO string for backend
+          length: min
+        });
+        cursor = blockEnd;
+        total -= min;
+        count++;
+      }
+    } catch { /* empty for now */}
+    return blocks;
+  }, [splitEnabled, start, length, blockDuration]);
+
+  // Duration between start & due (display only)
+  const startDate = new Date(start);
+  const dueDate = new Date(due);
+  const durationBetween = isNaN(dueDate - startDate) || dueDate < startDate ? null :
+    differenceInMinutes(dueDate, startDate);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      alert("Task name is required.");
+      return;
+    }
+    if (!start || !due || isNaN(startDate) || isNaN(dueDate) || dueDate < startDate) {
+      alert("Please provide a valid chronological start and due date.");
+      return;
+    }
+    if (!length || isNaN(Number(length)) || Number(length) <= 0) {
+      alert("Please enter a valid length in minutes.");
+      return;
+    }
+    // Do not send to backend. Instead, invoke onSubmit with all our info (including preview blocks).
+    onSubmit({
+      name: name.trim(),
+      description: description.trim(),
+      links: links.trim(),
+      files,
+      start, // Pass the ISO string directly
+      due,   // Pass the ISO string directly
+      length: Number(length),
+      importance,
+      splitEnabled, // Pass splitEnabled status
+      blockDuration: Number(blockDuration), // Pass block duration
+      blocks: timeBlocks, // The array of generated blocks for the custom task
+    });
+    onClose();
+  };
+
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-zinc-900 rounded-lg max-h-[80vh] w-full max-w-xl flex flex-col shadow-lg text-white border border-gray-400"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-task-modal-title"
+      >
+        <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+          <h2 id="new-task-modal-title" className="text-2xl font-bold text-gray-300">
+            New Task
+          </h2>
+          <X className="text-white hover:text-red-400 duration-300 cursor-pointer" onClick={onClose} />
+        </div>
+        {/* MODAL SCROLLABLE CONTENT */}
+        <div className="overflow-y-auto p-4 flex-1">
+          <label className="block mb-3">
+            <span className="text-indigo-200">Task Name*</span>
+            <input
+              type="text"
+              required
+              maxLength={100}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              autoFocus
+              className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
+            />
+          </label>
+          <div className="flex gap-4 mb-3">
+            <label className="flex-1 block">
+              <span className="text-indigo-200">Start</span>
+              <input
+                type="datetime-local"
+                value={start}
+                onChange={e => setStart(e.target.value)}
+                className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
+                required
+              />
+            </label>
+            <label className="flex-1 block">
+              <span className="text-indigo-200">Due</span>
+              <input
+                type="datetime-local"
+                value={due}
+                onChange={e => setDue(e.target.value)}
+                className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
+                required
+              />
+            </label>
+          </div>
+          <label className="block mb-3">
+            <span className="text-indigo-200">Task Length (minutes)*</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={length}
+              onChange={e => setLength(e.target.value)}
+              className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
+              required
+            />
+          </label>
+          {/* Duration between start and due (info only) */}
+          {durationBetween !== null && (
+            <div className="mb-3 text-indigo-400 text-sm">
+              <span>Available interval: {Math.floor(durationBetween/60)}h {durationBetween%60}m</span>
+            </div>
+          )}
+          {/* Additional fields */}
+          <label className="block mb-3">
+            <span className="text-indigo-200">Description</span>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+              className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white resize-y"
+            />
+          </label>
+          <label className="block mb-3">
+            <span className="text-indigo-200">Links (comma separated URLs)</span>
+            <input
+              type="text"
+              value={links}
+              onChange={e => setLinks(e.target.value)}
+              className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
+              placeholder="https://example.com, https://docs.com"
+            />
+          </label>
+          {/* Importance */}
+          <label className="block mb-3">
+            <span className="text-indigo-200">Importance</span>
+            <div className="flex gap-3 mt-2">
+              <button type="button"
+                onClick={() => setImportance(1)}
+                className={`p-2 rounded-full flex items-center justify-center
+                  ${importance === 1 ? "bg-sky-600 scale-110" : "bg-zinc-800 hover:bg-zinc-700"} transition`}
+                title="Low Importance"
+              >
+                <ZapOff size={19} className={importance === 1 ? "text-white" : "text-indigo-300"} />
+              </button>
+              <button type="button"
+                onClick={() => setImportance(2)}
+                className={`p-2 rounded-full flex items-center justify-center
+                  ${importance === 2 ? "bg-yellow-500 scale-110" : "bg-zinc-800 hover:bg-zinc-700"} transition`}
+                title="Normal Importance"
+              >
+                <Zap size={20} className={importance === 2 ? "text-white" : "text-yellow-400"} />
+              </button>
+              <button type="button"
+                onClick={() => setImportance(3)}
+                className={`p-2 rounded-full flex items-center justify-center
+                  ${importance === 3 ? "bg-red-500 scale-110" : "bg-zinc-800 hover:bg-zinc-700"} transition`}
+                title="High Importance"
+              >
+                <AlertTriangle size={20} className={importance === 3 ? "text-white" : "text-red-300"} />
+              </button>
+            </div>
+          </label>
+          {/* Attach Files */}
+          <label className="block mb-3">
+            <span className="text-indigo-200">Attach Files</span>
+            <input
+              type="file"
+              multiple
+              onChange={e => setFiles(e.target.files)}
+              className="mt-1 block bg-orange-700 p-3 rounded-xl hover:bg-orange-600 duration-300 cursor-pointer"
+            />
+            {files && files.length > 0 && (
+              <p className="mt-1 text-sm text-indigo-300">
+                {files.length} file{files.length > 1 ? "s" : ""} selected
+              </p>
+            )}
+          </label>
+          {/* Split Blocks Option */}
+          <div className="block mb-3">
+            <label className="flex gap-2 items-center cursor-pointer mb-1">
+              <input
+                type="checkbox"
+                checked={splitEnabled}
+                onChange={e => setSplitEnabled(e.target.checked)}
+                className="form-checkbox accent-indigo-500"
+              />
+              <span className="text-indigo-200">Split this task into blocks?</span>
+            </label>
+            {splitEnabled && (
+              <div className="pl-6">
+                <label className="block mb-2">
+                  <span className="text-indigo-200">Block length (minutes):</span>
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    step={5}
+                    value={blockDuration}
+                    onChange={e => setBlockDuration(Number(e.target.value))}
+                    className="ml-2 w-16 rounded-md bg-zinc-800 border border-zinc-700 p-1 text-white inline-block"
+                  />
+                </label>
+                {/* Preview blocks */}
+                {timeBlocks.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto border border-zinc-800 bg-zinc-950 px-2 py-1 rounded mb-2 mt-1 text-xs">
+                    <div className="mb-1 font-semibold text-indigo-300">Block preview:</div>
+                    <ol className="list-decimal list-inside text-gray-100 space-y-1">
+                      {timeBlocks.map((b, i) => (
+                        <li key={i}>
+                          {b.start} — {b.end} <span className="text-indigo-400">[{b.length} min]</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+        </div>
+        {/* ACTION BUTTONS */}
+        <div className="flex justify-end space-x-4 p-4 border-t border-zinc-800">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-transparent border border-gray-200 hover:bg-zinc-600 transition cursor-pointer duration-300"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 transition font-semibold cursor-pointer duration-300"
+          >
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // Sidebar updated with start and end time inputs, sending local ISO strings on save
 function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdateTask, tasks, initialTab = "upcoming" }) {
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -236,30 +530,17 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
 
   const now = new Date();
   const upcomingTasks = tasks
-    .filter((task) => new Date(task.end) > now)
+    .filter(task => new Date(task.end) > now)
     .sort((a, b) => new Date(a.start) - new Date(b.start));
 
   const binderTabColors = [
-    "#7c3aed",
-    "#dc2626",
-    "#16a34a",
-    "#eab308",
-    "#2563eb",
-    "#d97706",
-    "#0d9488",
-    "#4f46e5",
-    "#db2777",
-    "#059669",
-    "#b91c1c",
-    "#9333ea",
-    "#047857",
-    "#0369a1",
-    "#ca8a04",
+    "#7c3aed", "#dc2626", "#16a34a", "#eab308", "#2563eb",
+    "#d97706", "#0d9488", "#4f46e5", "#db2777", "#059669",
+    "#b91c1c", "#9333ea", "#047857", "#0369a1", "#ca8a04",
   ];
 
   const handleFileChange = (e) => setFiles(e.target.files);
 
-  // Parse "HH:mm" and apply to a date reference
   const getDateFromTimeString = (timeStr, referenceDate) => {
     const [hours, minutes] = timeStr.split(":").map(Number);
     if (isNaN(hours) || isNaN(minutes)) return null;
@@ -270,7 +551,10 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
 
   const handleSave = () => {
     if (!selectedTask) return;
-    if (!name.trim()) return alert("Task name is required.");
+    if (!name.trim()) {
+      alert("Task name is required.");
+      return;
+    }
 
     const startDate = getDateFromTimeString(startTimeStr, new Date(selectedTask.start));
     const endDate = getDateFromTimeString(endTimeStr, new Date(selectedTask.end));
@@ -294,7 +578,7 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
       description: description.trim(),
       links: links.trim(),
       files,
-      start: toLocalISOString(startDate), // Use local ISO string here
+      start: toLocalISOString(startDate),
       end: toLocalISOString(endDate),
     };
 
@@ -302,21 +586,39 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
   };
 
   const handleCancel = () => {
-    if (selectedTask) {
-      setName(selectedTask.name || "");
-      setDescription(selectedTask.description || "");
-      setLinks(selectedTask.links || "");
-      setFiles(null);
+    if (!selectedTask) return;
+    setName(selectedTask.name || "");
+    setDescription(selectedTask.description || "");
+    setLinks(selectedTask.links || "");
+    setFiles(null);
 
-      const start = new Date(selectedTask.start);
-      const end = new Date(selectedTask.end);
-      function toTimeString(date) {
-        const h = date.getHours().toString().padStart(2, "0");
-        const m = date.getMinutes().toString().padStart(2, "0");
-        return `${h}:${m}`;
-      }
-      setStartTimeStr(toTimeString(start));
-      setEndTimeStr(toTimeString(end));
+    const start = new Date(selectedTask.start);
+    const end = new Date(selectedTask.end);
+
+    function toTimeString(date) {
+      const h = date.getHours().toString().padStart(2, "0");
+      const m = date.getMinutes().toString().padStart(2, "0");
+      return `${h}:${m}`;
+    }
+    setStartTimeStr(toTimeString(start));
+    setEndTimeStr(toTimeString(end));
+  };
+
+  const handleDelete = async () => {
+    if (!selectedTask) return;
+    if (!window.confirm("Are you sure you want to delete this task? This action cannot be undone.")) return;
+    try {
+      const res = await fetch(`http://127.0.0.1:5000/api/tasks/${selectedTask.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete task");
+      onUpdateTask(null, selectedTask.id);
+      alert("Task successfully deleted!");
+      setSelectedTask(null);
+      onClose();
+    } catch (error) {
+      console.error(error);
+      alert("Error deleting task");
     }
   };
 
@@ -361,21 +663,21 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
           {upcomingTasks.length === 0 ? (
             <p className="text-center text-gray-400 select-none mt-8">No upcoming tasks</p>
           ) : (
-            upcomingTasks.map((task) => {
-              const hash =
-                typeof task.id === "string"
-                  ? task.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0)
-                  : Number(task.id);
+            upcomingTasks.map(task => {
+              const hash = typeof task.id === "string"
+                ? task.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0)
+                : Number(task.id);
               const colorIdx = Math.abs(hash) % binderTabColors.length;
               const previewBgColor = binderTabColors[colorIdx];
               const start = new Date(task.start);
               const end = new Date(task.end);
+
               return (
                 <button
                   key={task.id}
                   onClick={() => {
-                    setActiveTab("tasks");
                     setSelectedTask(task);
+                    setActiveTab("tasks");
                   }}
                   type="button"
                   className="w-full text-left rounded-xl hover:brightness-110 border border-[#363678] shadow-sm transition flex flex-col gap-1 px-5 py-4"
@@ -412,14 +714,13 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
             {upcomingTasks.length === 0 ? (
               <p className="text-gray-400 text-center mt-4">No tasks available</p>
             ) : (
-              upcomingTasks.map((task) => {
+              upcomingTasks.map(task => {
                 const hash =
                   typeof task.id === "string"
                     ? task.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0)
                     : Number(task.id);
                 const colorIndex = Math.abs(hash) % binderTabColors.length;
                 const bgColor = binderTabColors[colorIndex];
-
                 const isSelected = selectedTask?.id === task.id;
 
                 return (
@@ -514,6 +815,7 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
                     </p>
                   )}
                 </label>
+
                 <div className="flex justify-end space-x-4 mt-4">
                   <button
                     type="button"
@@ -522,6 +824,15 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
                   >
                     Cancel
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 transition font-semibold cursor-pointer duration-300"
+                  >
+                    Delete
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleSave}
@@ -541,6 +852,7 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
   );
 }
 
+
 export default function App() {
   const [viewType, setViewType] = useState(7);
   const [tasks, setTasks] = useState([]);
@@ -559,6 +871,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarInitialTab, setSidebarInitialTab] = useState("upcoming");
   const [selectedTask, setSelectedTask] = useState(null);
+
+  const [createModalOpen, setCreateModalOpen] = useState(false); // NEW
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -581,11 +895,40 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(task),
       });
-      if (!res.ok) throw new Error("Failed to add task");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to add task");
+      }
       const newTask = await res.json();
       setTasks((prev) => [...prev, newTask]);
     } catch (err) {
       console.error("Error adding task:", err);
+      alert(`Error adding task: ${err.message}`);
+    }
+  };
+
+  const addNewCustomTask = async (task) => {
+    try {
+      // Corrected: Post custom tasks to the /api/custom_tasks endpoint
+      const res = await fetch("http://127.0.0.1:5000/api/custom_tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(task),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to add custom task");
+      }      // For custom tasks, you might want to fetch all tasks again to see the blocks
+      // or selectively add the blocks and the custom task entry
+      // For simplicity, we can refetch all tasks to get the newly created blocks too
+      const updatedTasksRes = await fetch("http://127.0.0.1:5000/api/tasks");
+      if (!updatedTasksRes.ok) throw new Error("Failed to refetch tasks after custom task creation");
+      const updatedTasks = await updatedTasksRes.json();
+      setTasks(updatedTasks);
+      alert("Custom task and its blocks created successfully!");
+    } catch (err) {
+      console.error("Error adding custom task:", err);
+      alert(`Error adding custom task: ${err.message}`);
     }
   };
 
@@ -716,6 +1059,17 @@ export default function App() {
           type="button"
         >
           <ChevronRight size={20} />
+        </button>
+
+        <button
+          onClick={() => setCreateModalOpen(true)}
+          className="ml-2 flex items-center gap-1 p-3 rounded cursor-pointer transition-colors shadow-md shadow-black"
+          style={{ backgroundColor: "transparent", color: colors.navIcon }}
+          aria-label="Create New Task"
+          type="button"
+        >
+          <Plus size={18} />
+          <span className="hidden md:inline select-none">New Task</span>
         </button>
 
         <button
@@ -978,6 +1332,16 @@ export default function App() {
         initialEnd={pendingTaskData?.end}
       />
 
+      <CreateTaskModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={async (data) => {
+          // files not handled in demo; if needed send with FormData
+          await addNewCustomTask(data); // This now calls the dedicated custom task handler
+          setCreateModalOpen(false);
+        }}
+      />
+
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -987,7 +1351,11 @@ export default function App() {
           setSidebarInitialTab("upcoming");
         }}
         selectedTask={selectedTask}
-        onUpdateTask={async (updatedTask) => {
+        onUpdateTask={async (updatedTask, deletedTaskId = null) => {
+          if (deletedTaskId) {
+            setTasks((prev) => prev.filter((t) => t.id !== deletedTaskId));
+            return;
+          }
           try {
             const res = await fetch(`http://127.0.0.1:5000/api/tasks/${updatedTask.id}`, {
               method: "PATCH",
@@ -1000,14 +1368,17 @@ export default function App() {
                 end: updatedTask.end,
               }),
             });
-            if (!res.ok) throw new Error("Failed to update task");
+            if (!res.ok) {
+              const errorData = await res.json();
+              throw new Error(errorData.error || "Failed to update task");
+            }
             const updated = await res.json();
             setTasks((tasks) => tasks.map((t) => (t.id === updated.id ? updated : t)));
             setSelectedTask(updated);
             alert("Task successfully updated!");
           } catch (error) {
             console.error(error);
-            alert("Error updating task");
+            alert(`Error updating task: ${error.message}`);
           }
         }}
         tasks={tasks}

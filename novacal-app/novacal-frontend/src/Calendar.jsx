@@ -26,6 +26,13 @@ import {
   Zap,
   AlertTriangle,
 } from "lucide-react";
+import {
+  roundToNearest15,
+  floorTo15,
+  ceilTo15,
+  isMultiple15,
+  toLocalISOString
+} from "./utils/calendarUtils";
 
 const GRID_SLOT_HEIGHT_PX = 16;
 const GRID_MINUTES_PER_SLOT = 15;
@@ -76,167 +83,9 @@ const taskColors = [
     return taskColors[Math.abs(hash) % taskColors.length];
   }
 
-function roundToNearest15(date) {
-  if (!date || isNaN(new Date(date).getTime())) return null; // Handle undefined or invalid date
-  const d = new Date(date);
-  const minutes = Math.round(d.getMinutes() / 15) * 15;
-  d.setMinutes(minutes, 0, 0);
-  return d;
-}
+  import Modal from "./components/SimpleModal";
 
-function floorTo15(date) {
-  // Use when enforcing "not after" for due, e.g. always round down
-  const d = new Date(date);
-  const minutes = Math.floor(d.getMinutes() / 15) * 15;
-  d.setMinutes(minutes, 0, 0);
-  return d;
-}
-function ceilTo15(date) {
-  // Use when time must be strictly after, e.g. always round up
-  const d = new Date(date);
-  const minutes = Math.ceil(d.getMinutes() / 15) * 15;
-  d.setMinutes(minutes, 0, 0);
-  return d;
-}
-function isMultiple15(date) {
-  return date.getMinutes() % 15 === 0;
-}
-
-
-// Helper function to return ISO string in local time (no 'Z' suffix, no UTC conversion)
-function toLocalISOString(date) {
-  const pad = (num) => num.toString().padStart(2, "0");
-  return (
-    date.getFullYear() +
-    "-" +
-    pad(date.getMonth() + 1) +
-    "-" +
-    pad(date.getDate()) +
-    "T" +
-    pad(date.getHours()) +
-    ":" +
-    pad(date.getMinutes()) +
-    ":00"
-  );
-}
 // Modal unchanged - no time editing here
-function Modal({ isOpen, onClose, onSubmit, initialName, initialStart, initialEnd }) {
-  const [name, setName] = useState(initialName || "");
-  const [description, setDescription] = useState("");
-  const [links, setLinks] = useState("");
-  const [files, setFiles] = useState(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setName(initialName || "");
-      setDescription("");
-      setLinks("");
-      setFiles(null);
-    }
-  }, [isOpen, initialName]);
-
-  const handleFileChange = (e) => {
-    setFiles(e.target.files);
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit({
-      name: name.trim(),
-      description: description.trim(),
-      links: links.trim(),
-      files,
-      start: toLocalISOString(initialStart), // Use local ISO string here
-      end: toLocalISOString(initialEnd),
-    });
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-opacity-70 p-4">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-zinc-900 rounded-lg p-6 max-w-lg w-full space-y-4 shadow-lg text-white border-1 border-gray-400 shadow-xl shadow-black"
-        aria-modal="true"
-        role="dialog"
-        aria-labelledby="modal-title"
-      >
-        <div className="w-full flex items-center justify-between mt-3">
-          <h2 id="modal-title" className="text-3xl font-bold text-gray-300">
-            Add Task/Event
-          </h2>
-          <X className="text-white hover:text-red-400 duration-300 cursor-pointer" onClick={onClose} />
-        </div>
-
-        <label className="block">
-          <span className="text-indigo-200">Task Name</span>
-          <input
-            type="text"
-            required
-            maxLength={100}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
-            autoFocus
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-indigo-200">Description</span>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white resize-y"
-            placeholder="Add a description (optional)"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-indigo-200">Links (comma separated URLs)</span>
-          <input
-            type="text"
-            value={links}
-            onChange={(e) => setLinks(e.target.value)}
-            className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
-            placeholder="https://example.com, https://docs.com"
-          />
-        </label>
-
-        <label className="block">
-          <input
-            type="file"
-            multiple
-            onChange={handleFileChange}
-            className="mt-1 block bg-orange-700 p-3 rounded-xl hover:bg-orange-600 duration-300 cursor-pointer"
-          />
-          {files && files.length > 0 && (
-            <p className="mt-1 text-sm text-indigo-300">
-              {files.length} file{files.length > 1 ? "s" : ""} selected
-            </p>
-          )}
-        </label>
-
-        <div className="flex justify-end space-x-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-transparent border-1 border-gray-200 hover:bg-zinc-600 transition cursor-pointer duration-300"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 transition font-semibold cursor-pointer duration-300"
-          >
-            Save
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
 
 function CreateTaskModal({ isOpen, onClose, onSubmit }) {
   const [name, setName] = useState("");
@@ -741,7 +590,7 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
       </div>
 
       {activeTab === "upcoming" && (
-        <div className="overflow-y-auto h-[calc(100%-56px)] p-6 space-y-4">
+        <div className="overflow-y-auto h-[calc(100%-56px)] p-6 space-y-4 calendar-scrollbar">
           {upcomingTasks.length === 0 ? (
             <p className="text-center text-gray-400 select-none mt-8">No upcoming tasks</p>
           ) : (
@@ -817,7 +666,7 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
             )}
           </nav>
 
-          <div className="flex-grow overflow-y-auto p-4 space-y-4">
+          <div className="flex-grow overflow-y-auto p-4 space-y-4 calendar-scrollbar">
             {selectedTask ? (
               <>
                 <label className="block">
@@ -1280,7 +1129,7 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 to-black text-gray-100 font-sans">
       <nav
-        className="flex items-center gap-3 mb-4 w-full h-[64px] mx-auto font-semibold relative p-5 border-b-2 border-gray-400"
+        className="flex items-center gap-3 mb-[16px] w-full h-[64px] mx-auto font-semibold relative p-5 border-b-2 border-gray-400"
         style={{ color: colors.navIcon }}
       >
         <button
@@ -1391,7 +1240,7 @@ export default function CalendarPage() {
           className="grid border rounded-xl overflow-y-auto shadow-inner relative calendar-scrollbar"
           style={{
             gridTemplateColumns: `64px repeat(${viewType}, 1fr)`,
-            height: "calc(100vh - 64px)",
+            height: "calc(100vh - 8-px)",
             backgroundColor: colors.background,
             borderColor: colors.border,
             marginRight: sidebarOpen ? 385 : 0,
@@ -1715,12 +1564,6 @@ export default function CalendarPage() {
         tasks={tasks}
         initialTab={sidebarInitialTab}
       />
-
-      {/* Debug Panel */}
-      <section className="mt-12 max-w-[1200px] mx-auto bg-slate-800 border border-slate-700 text-slate-300 rounded-2xl p-6 font-mono text-sm overflow-x-auto px-6 sm:px-0">
-        <h2 className="mb-4 text-lg font-semibold border-b border-slate-600 pb-2">🐛 Debug: Current Tasks</h2>
-        <pre>{JSON.stringify(tasks, null, 2)}</pre>
-      </section>
     </div>
   );
 }

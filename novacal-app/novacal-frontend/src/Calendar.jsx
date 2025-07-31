@@ -1504,8 +1504,8 @@ export default function CalendarPage() {
 
                 {/* Task Blocks */}
                 {tasks
-                  .filter(t => isEqual(startOfDay(new Date(t.start)), startOfDay(date)))
-                  .map(task => {
+                  .filter((t) => isEqual(startOfDay(new Date(t.start)), startOfDay(date)))
+                  .map((task) => {
                     const start = new Date(task.start);
                     const end = new Date(task.end);
                     const top =
@@ -1522,17 +1522,26 @@ export default function CalendarPage() {
                       liveTop = top + draggedOffsetSlots * GRID_SLOT_HEIGHT_PX;
                     }
                     if (resizingTask && resizingTask.id === task.id) {
-                      liveHeight = Math.max(height + resizeOffsetSlots * GRID_SLOT_HEIGHT_PX, GRID_SLOT_HEIGHT_PX);
+                      liveHeight = Math.max(
+                        height + resizeOffsetSlots * GRID_SLOT_HEIGHT_PX,
+                        GRID_SLOT_HEIGHT_PX
+                      );
                     }
 
-                    // Threshold height below which description won’t be rendered
-                    const DESCRIPTION_DISPLAY_THRESHOLD = 48; // pixels, tune as needed
+                    // Thresholds for showing time and description
+                    const timeDisplayThreshold = 40; // only show time if this tall or taller
+                    const descriptionDisplayThreshold = 60; // show description only if this tall or taller
 
-                    // Flag to control description visibility
-                    const showDescription = liveHeight >= DESCRIPTION_DISPLAY_THRESHOLD;
+                    const showTime = liveHeight >= timeDisplayThreshold;
+                    const showDescription = liveHeight >= descriptionDisplayThreshold;
 
-                    // Optional: scale down font size for short blocks to fit better
-                    const fontSize = liveHeight < 40 ? "0.75rem" : "0.875rem"; // smaller font for very short blocks
+                    // Font sizes adjusted based on height (you can tweak these)
+                    let nameFontSize = "0.9rem";
+                    if (liveHeight < 24) nameFontSize = "0.7rem";
+                    else if (liveHeight < 36) nameFontSize = "0.8rem";
+
+                    let timeFontSize = "0.75rem";
+                    if (liveHeight < 48) timeFontSize = "0.6rem";
 
                     return (
                       <div
@@ -1548,7 +1557,10 @@ export default function CalendarPage() {
                           overflow: "hidden",
                           userSelect: "text",
                           touchAction: "none",
-                          fontSize,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: showDescription ? "0.15rem" : "0.1rem",
+                          whiteSpace: "nowrap",
                         }}
                         title={`${task.name}: ${format(start, "p")} – ${format(end, "p")}`}
                         onClick={() => {
@@ -1568,22 +1580,44 @@ export default function CalendarPage() {
                         }}
                         onMouseDown={(e) => onTaskMouseDown(e, task)}
                       >
-                        <div className="truncate">{task.name}</div>
+                        {/* Task name always shown, truncated if needed */}
+                        <div
+                          className="truncate"
+                          style={{
+                            fontWeight: "bold",
+                            fontSize: nameFontSize,
+                            userSelect: "text",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {task.name}
+                        </div>
+
+                        {/* Show start-end time - smaller and only if enough space */}
+                        {showTime && (
+                          <div
+                            style={{
+                              fontSize: timeFontSize,
+                              opacity: 0.8,
+                              userSelect: "none",
+                              fontVariantNumeric: "tabular-nums",
+                            }}
+                          >
+                            {format(start, "p")} – {format(end, "p")}
+                          </div>
+                        )}
+
+                        {/* Show description if enough space */}
                         {showDescription && task.description && (
                           <div
-                            className="text-[10px] opacity-80 italic truncate"
+                            className="text-[10px] italic truncate"
                             style={{ color: "rgba(255, 255, 255, 0.75)" }}
                             title={task.description}
                           >
                             {task.description}
                           </div>
                         )}
-                        <div
-                          className="text-[10px] opacity-90"
-                          style={{ color: "rgba(255, 255, 255, 0.85)" }}
-                        >
-                          {format(start, "p")} - {format(end, "p")}
-                        </div>
 
                         {/* Resize Handle */}
                         <div
@@ -1607,6 +1641,8 @@ export default function CalendarPage() {
                       </div>
                     );
                   })}
+
+
 
               </div>
             </div>

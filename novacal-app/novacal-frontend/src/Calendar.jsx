@@ -1508,8 +1508,11 @@ export default function CalendarPage() {
                   .map(task => {
                     const start = new Date(task.start);
                     const end = new Date(task.end);
-                    const top = ((getHours(start) * 60 + getMinutes(start)) / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
-                    const height = ((end - start) / 60000 / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
+                    const top =
+                      ((getHours(start) * 60 + getMinutes(start)) / GRID_MINUTES_PER_SLOT) *
+                      GRID_SLOT_HEIGHT_PX;
+                    const height =
+                      ((end - start) / 60000 / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
 
                     // Live positions/heights for dragging/resizing
                     let liveTop = top;
@@ -1521,6 +1524,15 @@ export default function CalendarPage() {
                     if (resizingTask && resizingTask.id === task.id) {
                       liveHeight = Math.max(height + resizeOffsetSlots * GRID_SLOT_HEIGHT_PX, GRID_SLOT_HEIGHT_PX);
                     }
+
+                    // Threshold height below which description won’t be rendered
+                    const DESCRIPTION_DISPLAY_THRESHOLD = 48; // pixels, tune as needed
+
+                    // Flag to control description visibility
+                    const showDescription = liveHeight >= DESCRIPTION_DISPLAY_THRESHOLD;
+
+                    // Optional: scale down font size for short blocks to fit better
+                    const fontSize = liveHeight < 40 ? "0.75rem" : "0.875rem"; // smaller font for very short blocks
 
                     return (
                       <div
@@ -1536,6 +1548,7 @@ export default function CalendarPage() {
                           overflow: "hidden",
                           userSelect: "text",
                           touchAction: "none",
+                          fontSize,
                         }}
                         title={`${task.name}: ${format(start, "p")} – ${format(end, "p")}`}
                         onClick={() => {
@@ -1556,7 +1569,7 @@ export default function CalendarPage() {
                         onMouseDown={(e) => onTaskMouseDown(e, task)}
                       >
                         <div className="truncate">{task.name}</div>
-                        {task.description && (
+                        {showDescription && task.description && (
                           <div
                             className="text-[10px] opacity-80 italic truncate"
                             style={{ color: "rgba(255, 255, 255, 0.75)" }}
@@ -1565,7 +1578,10 @@ export default function CalendarPage() {
                             {task.description}
                           </div>
                         )}
-                        <div className="text-[10px] opacity-90" style={{ color: "rgba(255, 255, 255, 0.85)" }}>
+                        <div
+                          className="text-[10px] opacity-90"
+                          style={{ color: "rgba(255, 255, 255, 0.85)" }}
+                        >
                           {format(start, "p")} - {format(end, "p")}
                         </div>
 
@@ -1591,6 +1607,7 @@ export default function CalendarPage() {
                       </div>
                     );
                   })}
+
               </div>
             </div>
           ))}

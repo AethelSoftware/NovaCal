@@ -58,20 +58,24 @@ const colors = {
   settingsOptionHover: "#2a2a40",
 };
 
-const taskColors = [
-    "#16a34a",
-    "#059669",
-    "#0d9488",
-    "#2563eb",
-    "#0284c7",
-    "#4f46e5",
-    "#15803d",
-    "#047857",
-    "#115e59",
-    "#1d4ed8",
-    "#0369a1",
-    "#4338ca",
-    "#b91c1c",
+  const taskColors = [
+    "#15803d", // green-600 (original #16a34a was green-700)
+    "#059669", // emerald-600 (original was emerald-600)
+    "#0d9488", // teal-700 (original was teal-700)
+    "#2563eb", // blue-700 (original was blue-700)
+    "#0284c7", // sky-700 (original was sky-700)
+    "#4f46e5", // indigo-700 (original was indigo-700)
+    "#047857", // emerald-700
+    "#115e59", // teal-800
+    "#1d4ed8", // blue-800
+    "#0369a1", // sky-800
+    "#4338ca", // indigo-800
+    "#b91c1c", // red-700
+    "#991b1b", // red-800
+    "#c2410c", // orange-700
+    "#9a3412", // orange-800
+    "#be123c", // rose-700
+    "#9f1239", // rose-800
   ];
 
   function getTaskColor(id) {
@@ -84,8 +88,6 @@ const taskColors = [
   }
 
   import Modal from "./components/SimpleModal";
-
-// Modal unchanged - no time editing here
 
 function CreateTaskModal({ isOpen, onClose, onSubmit }) {
   const [name, setName] = useState("");

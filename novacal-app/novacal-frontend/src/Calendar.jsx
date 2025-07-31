@@ -51,6 +51,31 @@ const colors = {
   settingsOptionHover: "#2a2a40",
 };
 
+const taskColors = [
+    "#16a34a",
+    "#059669",
+    "#0d9488",
+    "#2563eb",
+    "#0284c7",
+    "#4f46e5",
+    "#15803d",
+    "#047857",
+    "#115e59",
+    "#1d4ed8",
+    "#0369a1",
+    "#4338ca",
+    "#b91c1c",
+  ];
+
+  function getTaskColor(id) {
+    let hash = 0;
+    if (typeof id !== "string") id = String(id);
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return taskColors[Math.abs(hash) % taskColors.length];
+  }
+
 function roundToNearest15(date) {
   if (!date || isNaN(new Date(date).getTime())) return null; // Handle undefined or invalid date
   const d = new Date(date);
@@ -378,10 +403,15 @@ function CreateTaskModal({ isOpen, onClose, onSubmit }) {
             <span className="text-indigo-200">Task Length (minutes)*</span>
             <input
               type="number"
-              min={1}
-              step={1}
+              min={15}
+              step={15}
               value={length}
-              onChange={e => setLength(e.target.value)}
+              onChange={(e) => setLength(Number(e.target.value))}
+              onBlur={() => {
+                if (length % 15 !== 0) {
+                  setLength(Math.round(length / 15) * 15);
+                }
+              }}
               className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
               required
             />
@@ -474,11 +504,17 @@ function CreateTaskModal({ isOpen, onClose, onSubmit }) {
                   <span className="text-indigo-200">Block length (minutes):</span>
                   <input
                     type="number"
-                    min={5}
+                    min={15}
                     max={300}
-                    step={5}
+                    step={15}
                     value={blockDuration}
-                    onChange={e => setBlockDuration(Number(e.target.value))}
+                    onChange={(e) => setBlockDuration(Number(e.target.value))}
+                    onBlur={() => {
+                      if (blockDuration % 15 !== 0) {
+                        // Snap blockDuration to nearest multiple of 15
+                        setBlockDuration(Math.round(blockDuration / 15) * 15);
+                      }
+                    }}
                     className="ml-2 w-16 rounded-md bg-zinc-800 border border-zinc-700 p-1 text-white inline-block"
                   />
                 </label>
@@ -577,13 +613,6 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
   const upcomingTasks = tasks
     .filter(task => new Date(task.end) > now)
     .sort((a, b) => new Date(a.start) - new Date(b.start));
-
-  const binderTabColors = [
-    "#7c3aed", "#dc2626", "#16a34a", "#eab308", "#2563eb",
-    "#d97706", "#0d9488", "#4f46e5", "#db2777", "#059669",
-    "#b91c1c", "#9333ea", "#047857", "#0369a1", "#ca8a04",
-  ];
-
   const handleFileChange = (e) => setFiles(e.target.files);
 
   const getDateFromTimeString = (timeStr, referenceDate) => {
@@ -717,11 +746,7 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
             <p className="text-center text-gray-400 select-none mt-8">No upcoming tasks</p>
           ) : (
             upcomingTasks.map(task => {
-              const hash = typeof task.id === "string"
-                ? task.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0)
-                : Number(task.id);
-              const colorIdx = Math.abs(hash) % binderTabColors.length;
-              const previewBgColor = binderTabColors[colorIdx];
+              const previewBgColor = getTaskColor(task.id);
               const start = new Date(task.start);
               const end = new Date(task.end);
 
@@ -768,12 +793,7 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
               <p className="text-gray-400 text-center mt-4">No tasks available</p>
             ) : (
               upcomingTasks.map(task => {
-                const hash =
-                  typeof task.id === "string"
-                    ? task.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0)
-                    : Number(task.id);
-                const colorIndex = Math.abs(hash) % binderTabColors.length;
-                const bgColor = binderTabColors[colorIndex];
+                const bgColor = getTaskColor(task.id);
                 const isSelected = selectedTask?.id === task.id;
 
                 return (
@@ -1222,31 +1242,6 @@ export default function CalendarPage() {
     };
   }, [handleMouseUp, cleanUpDrag]);
 
-  const taskColors = [
-    "#16a34a",
-    "#059669",
-    "#0d9488",
-    "#2563eb",
-    "#0284c7",
-    "#4f46e5",
-    "#15803d",
-    "#047857",
-    "#115e59",
-    "#1d4ed8",
-    "#0369a1",
-    "#4338ca",
-    "#b91c1c",
-  ];
-
-  function getTaskColor(id) {
-    let hash = 0;
-    if (typeof id !== "string") id = String(id);
-    for (let i = 0; i < id.length; i++) {
-      hash = id.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return taskColors[Math.abs(hash) % taskColors.length];
-  }
-
   const onUpdateTask = async (updatedTask) => {
   try {
     // Optimistically update local state immediately
@@ -1596,8 +1591,6 @@ export default function CalendarPage() {
                       </div>
                     );
                   })}
-
-
               </div>
             </div>
           ))}

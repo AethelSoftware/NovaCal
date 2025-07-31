@@ -36,10 +36,10 @@ const useAuth = () => {
 
 const navLinks = [
   { name: 'Tutorial', href: '/tutorial', icon: School },
-  { name: 'My Calendar', href: '/dashboard', icon: CalendarCheck },
-  { name: 'Hours', href: '/upload', icon: FileClock },
+  { name: 'My Calendar', href: '/calendar', icon: CalendarCheck },
+  { name: 'Hours', href: '/hours', icon: FileClock },
   { name: 'Message', href: '/message', icon: MessageCircle },
-  { name: 'Meet', href: '/chatbot', icon: Presentation },
+  { name: 'Meet', href: '/meet', icon: Presentation },
   { name: 'Analytics', href: '/analytics', icon: ChartNoAxesCombined },
 ];
 
@@ -80,9 +80,9 @@ export default function Sidebar() {
         collapsed ? 'w-20 !p-3' : 'w-64 !p-6'
       )}
     >
-      <div className="absolute -top-32 -left-20 w-72 h-72 bg-pink-500/20 rounded-full blur-3xl z-0" />
-      <div className="absolute top-1/3 -right-28 w-64 h-64 bg-cyan-400/20 rounded-full blur-3xl z-0" />
-      <div className="absolute bottom-0 -left-28 w-72 h-72 bg-rose-600/20 rounded-full blur-3xl z-0" />
+      <div className="absolute -top-32 -left-20 w-72 h-72 bg-sky-500/20 rounded-full blur-3xl z-0" />
+      <div className="absolute top-1/3 -right-28 w-64 h-64 bg-teal-400/20 rounded-full blur-3xl z-0" />
+      <div className="absolute bottom-0 -left-28 w-72 h-72 bg-cyan-600/20 rounded-full blur-3xl z-0" />
 
       <button
         onClick={() => setCollapsed(!collapsed)}

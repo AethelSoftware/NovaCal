@@ -51,6 +51,33 @@ const colors = {
   settingsOptionHover: "#2a2a40",
 };
 
+function roundToNearest15(date) {
+  if (!date || isNaN(new Date(date).getTime())) return null; // Handle undefined or invalid date
+  const d = new Date(date);
+  const minutes = Math.round(d.getMinutes() / 15) * 15;
+  d.setMinutes(minutes, 0, 0);
+  return d;
+}
+
+function floorTo15(date) {
+  // Use when enforcing "not after" for due, e.g. always round down
+  const d = new Date(date);
+  const minutes = Math.floor(d.getMinutes() / 15) * 15;
+  d.setMinutes(minutes, 0, 0);
+  return d;
+}
+function ceilTo15(date) {
+  // Use when time must be strictly after, e.g. always round up
+  const d = new Date(date);
+  const minutes = Math.ceil(d.getMinutes() / 15) * 15;
+  d.setMinutes(minutes, 0, 0);
+  return d;
+}
+function isMultiple15(date) {
+  return date.getMinutes() % 15 === 0;
+}
+
+
 // Helper function to return ISO string in local time (no 'Z' suffix, no UTC conversion)
 function toLocalISOString(date) {
   const pad = (num) => num.toString().padStart(2, "0");
@@ -202,18 +229,21 @@ function CreateTaskModal({ isOpen, onClose, onSubmit }) {
 
   useEffect(() => {
     if (isOpen) {
+      const nowRounded = roundToNearest15(new Date());
+      const due = roundToNearest15(addMinutes(nowRounded, 24 * 60));
+      setStart(format(nowRounded, "yyyy-MM-dd'T'HH:mm"));
+      setDue(format(due, "yyyy-MM-dd'T'HH:mm"));
       setName("");
       setDescription("");
       setLinks("");
       setFiles(null);
-      setStart(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
-      setDue(format(addMinutes(new Date(), 720), "yyyy-MM-dd'T'HH:mm"));
       setLength(60);
       setImportance(2);
       setSplitEnabled(false);
       setBlockDuration(30);
     }
   }, [isOpen]);
+
 
   // Split preview: breaks up the length (not interval from start to due!)
   const timeBlocks = useMemo(() => {
@@ -222,7 +252,7 @@ function CreateTaskModal({ isOpen, onClose, onSubmit }) {
     try {
       // Compute blocks, starting at `start`
       let total = Number(length);
-      let cursor = new Date(start);
+      let cursor = roundToNearest15(new Date(start));
       let count = 0;
       while (total > 0 && count < 100) {
         let min = Math.min(blockDuration, total);
@@ -288,13 +318,13 @@ function CreateTaskModal({ isOpen, onClose, onSubmit }) {
         aria-labelledby="new-task-modal-title"
       >
         <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-          <h2 id="new-task-modal-title" className="text-2xl font-bold text-gray-300">
+          <h2 id="new-task-modal-title" className="text-3xl font-bold text-gray-300">
             New Task
           </h2>
           <X className="text-white hover:text-red-400 duration-300 cursor-pointer" onClick={onClose} />
         </div>
         {/* MODAL SCROLLABLE CONTENT */}
-        <div className="overflow-y-auto p-4 flex-1">
+        <div className="overflow-y-auto p-4 flex-1 calendar-scrollbar">
           <label className="block mb-3">
             <span className="text-indigo-200">Task Name*</span>
             <input
@@ -314,6 +344,14 @@ function CreateTaskModal({ isOpen, onClose, onSubmit }) {
                 type="datetime-local"
                 value={start}
                 onChange={e => setStart(e.target.value)}
+                onBlur={e => {
+                  const picked = new Date(e.target.value);
+                  if (!isNaN(picked.getTime())) {
+                    const rounded = roundToNearest15(picked);
+                    setStart(format(rounded, "yyyy-MM-dd'T'HH:mm"));
+                    // also recalc due if you want, as above
+                  }
+                }}
                 className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
                 required
               />
@@ -324,6 +362,13 @@ function CreateTaskModal({ isOpen, onClose, onSubmit }) {
                 type="datetime-local"
                 value={due}
                 onChange={e => setDue(e.target.value)}
+                onBlur={e => {
+                  const picked = new Date(e.target.value);
+                  if (!isNaN(picked.getTime())) {
+                    const rounded = roundToNearest15(picked);
+                    setDue(format(rounded, "yyyy-MM-dd'T'HH:mm"));
+                  }
+                }}
                 className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white"
                 required
               />
@@ -404,7 +449,7 @@ function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               type="file"
               multiple
               onChange={e => setFiles(e.target.files)}
-              className="mt-1 block bg-orange-700 p-3 rounded-xl hover:bg-orange-600 duration-300 cursor-pointer"
+              className="mt-1 block bg-sky-700 p-3 rounded-xl hover:bg-sky-600 duration-300 cursor-pointer"
             />
             {files && files.length > 0 && (
               <p className="mt-1 text-sm text-indigo-300">
@@ -439,8 +484,8 @@ function CreateTaskModal({ isOpen, onClose, onSubmit }) {
                 </label>
                 {/* Preview blocks */}
                 {timeBlocks.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto border border-zinc-800 bg-zinc-950 px-2 py-1 rounded mb-2 mt-1 text-xs">
-                    <div className="mb-1 font-semibold text-indigo-300">Block preview:</div>
+                  <div className="max-h-32 overflow-y-auto border border-zinc-800 px-2 py-1 rounded mb-2 mt-1 text-xs">
+                    <div className="mb-1 font-semibold text-indigo-300">Task preview:</div>
                     <ol className="list-decimal list-inside text-gray-100 space-y-1">
                       {timeBlocks.map((b, i) => (
                         <li key={i}>
@@ -556,8 +601,16 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
       return;
     }
 
-    const startDate = getDateFromTimeString(startTimeStr, new Date(selectedTask.start));
-    const endDate = getDateFromTimeString(endTimeStr, new Date(selectedTask.end));
+    let startDate = getDateFromTimeString(startTimeStr, new Date(selectedTask.start));
+    let endDate = getDateFromTimeString(endTimeStr, new Date(selectedTask.end));
+
+    startDate = floorTo15(startDate);
+    endDate = ceilTo15(endDate);
+
+    if (!isMultiple15(startDate) || !isMultiple15(endDate)) {
+      alert("Start and end time must be on a 15-minute boundary.");
+      return;
+    }
 
     if (!startDate || !endDate) {
       alert("Please enter valid start and end times.");
@@ -786,6 +839,17 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
                     type="time"
                     value={startTimeStr}
                     onChange={(e) => setStartTimeStr(e.target.value)}
+                    onBlur={(e) => {
+                      const picked = getDateFromTimeString(e.target.value, new Date(selectedTask.start));
+                      if (picked) {
+                        const rounded = roundToNearest15(picked);
+                        if (rounded) {
+                          const h = rounded.getHours().toString().padStart(2, "0");
+                          const m = rounded.getMinutes().toString().padStart(2, "0");
+                          setStartTimeStr(`${h}:${m}`);
+                        }
+                      }
+                    }}
                     className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white focus:outline-none focus:border-sky-500"
                     required
                   />
@@ -796,6 +860,17 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
                     type="time"
                     value={endTimeStr}
                     onChange={(e) => setEndTimeStr(e.target.value)}
+                    onBlur={(e) => {
+                      const picked = getDateFromTimeString(e.target.value, new Date(selectedTask.end));
+                      if (picked) {
+                        const rounded = roundToNearest15(picked);
+                        if (rounded) {
+                          const h = rounded.getHours().toString().padStart(2, "0");
+                          const m = rounded.getMinutes().toString().padStart(2, "0");
+                          setEndTimeStr(`${h}:${m}`);
+                        }
+                      }
+                    }}
                     className="mt-1 block w-full rounded-md bg-zinc-800 border border-zinc-700 p-2 text-white focus:outline-none focus:border-sky-500"
                     required
                   />
@@ -853,7 +928,7 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
 }
 
 
-export default function App() {
+export default function CalendarPage() {
   const [viewType, setViewType] = useState(7);
   const [tasks, setTasks] = useState([]);
 
@@ -873,6 +948,147 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState(null);
 
   const [createModalOpen, setCreateModalOpen] = useState(false); // NEW
+
+  // For dragging/resizing task behavior
+  const [draggingTask, setDraggingTask] = useState(null);
+  const [dragStartY, setDragStartY] = useState(0);
+  const [draggedOffsetSlots, setDraggedOffsetSlots] = useState(0);
+  const [resizingTask, setResizingTask] = useState(null);
+  const [resizeStartY, setResizeStartY] = useState(0);
+  const [resizeOffsetSlots, setResizeOffsetSlots] = useState(0);
+
+  const dragMovedRef = useRef(false); // To distinguish clicks from drags
+
+  // Helper: slots to minutes
+  const slotsToMinutes = (slots) => slots * GRID_MINUTES_PER_SLOT;
+
+  // Helper: update a task's time and call onUpdateTask
+  const updateTaskTimes = (taskId, newStart, newEnd) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const updated = {
+      ...task,
+      start: toLocalISOString(newStart),
+      end: toLocalISOString(newEnd),
+    };
+    onUpdateTask(updated);
+  };
+
+  const onTaskMouseDown = (e, task) => {
+    if (e.button !== 0) return; // only left click to drag
+    e.stopPropagation();
+    dragMovedRef.current = false;
+    setDraggingTask(task);
+    setDragStartY(e.clientY);
+    setDraggedOffsetSlots(0);
+  };
+
+  const onResizeHandleMouseDown = (e, task) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setResizingTask(task);
+    setResizeStartY(e.clientY);
+    setResizeOffsetSlots(0);
+  };
+
+  const onMouseMove = (e) => {
+    if (draggingTask) {
+      const deltaY = e.clientY - dragStartY;
+      const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
+      setDraggedOffsetSlots(slotsMoved);
+    }
+    if (resizingTask) {
+      const deltaY = e.clientY - resizeStartY;
+      const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
+      setResizeOffsetSlots(slotsMoved);
+    }
+  };
+
+  const onMouseUp = () => {
+  // Handle dragging move end
+  if (draggingTask) {
+    const oldStart = new Date(draggingTask.start);
+    const oldEnd = new Date(draggingTask.end);
+    const durationMs = oldEnd - oldStart;
+
+    let newStart = addMinutes(oldStart, slotsToMinutes(draggedOffsetSlots));
+
+    // Clamp newStart between startOfDay and last allowed start time (so task doesn't overflow the day)
+    if (newStart.getDate() !== oldStart.getDate()) {
+      // Drag moved task to a different day - cancel move
+      setDraggingTask(null);
+      setDraggedOffsetSlots(0);
+      return;
+    }
+    if (newStart < startOfDay(newStart)) newStart = startOfDay(newStart);
+    if (newStart > addMinutes(startOfDay(newStart), 24 * 60 - durationMs / 60000)) {
+      newStart = addMinutes(startOfDay(newStart), 24 * 60 - durationMs / 60000);
+    }
+
+    const newEnd = new Date(newStart.getTime() + durationMs);
+
+    // Snap start and end times to nearest 15 minutes
+    const roundedStart = floorTo15(newStart);
+    const roundedEnd = floorTo15(newEnd);
+
+    // Update task times using your updater
+    updateTaskTimes(draggingTask.id, roundedStart, roundedEnd);
+
+    // Clear dragging state
+    setDraggingTask(null);
+    setDraggedOffsetSlots(0);
+  }
+
+  // Handle resizing end
+  if (resizingTask) {
+    const oldStart = new Date(resizingTask.start);
+    const oldEnd = new Date(resizingTask.end);
+
+    // Calculate new duration based on resize offset slots
+    const newDurationMs =
+      oldEnd.getTime() - oldStart.getTime() + slotsToMinutes(resizeOffsetSlots) * 60000;
+
+    // Enforce minimum duration 15 minutes
+    if (newDurationMs < 15 * 60 * 1000) {
+      setResizingTask(null);
+      setResizeOffsetSlots(0);
+      return;
+    }
+
+    const newEnd = addMinutes(oldStart, Math.floor(newDurationMs / 60000));
+
+    // Prevent task from crossing over to next day
+    if (newEnd.getDate() !== oldStart.getDate()) {
+      setResizingTask(null);
+      setResizeOffsetSlots(0);
+      return;
+    }
+
+    // Snap end time up to nearest 15 minutes
+    const roundedEnd = ceilTo15(newEnd);
+
+    // Update task times
+    updateTaskTimes(resizingTask.id, oldStart, roundedEnd);
+
+    // Clear resizing state
+    setResizingTask(null);
+    setResizeOffsetSlots(0);
+  }
+};
+
+
+
+  // Attach window listeners for mousemove and mouseup
+  useEffect(() => {
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [draggingTask, dragStartY, draggedOffsetSlots, resizingTask, resizeStartY, resizeOffsetSlots]);
+
+
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -1030,6 +1246,41 @@ export default function App() {
     }
     return taskColors[Math.abs(hash) % taskColors.length];
   }
+
+  const onUpdateTask = async (updatedTask) => {
+  try {
+    // Optimistically update local state immediately
+    setTasks(prevTasks => prevTasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+
+    // Update backend
+    const res = await fetch(`http://127.0.0.1:5000/api/tasks/${updatedTask.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: updatedTask.name,
+        description: updatedTask.description,
+        links: updatedTask.links,
+        start: updatedTask.start,
+        end: updatedTask.end,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to update task");
+    }
+
+    const freshTask = await res.json();
+
+    // Sync with backend response (optional, in case backend modifies it)
+    setTasks(prevTasks => prevTasks.map(t => t.id === freshTask.id ? freshTask : t));
+
+  } catch (error) {
+    console.error("Error updating task:", error);
+    alert("Error updating task: " + error.message);
+  }
+};
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 to-black text-gray-100 font-sans">
@@ -1258,35 +1509,46 @@ export default function App() {
 
                 {/* Task Blocks */}
                 {tasks
-                  .filter((t) => isEqual(startOfDay(new Date(t.start)), startOfDay(date)))
-                  .map((task) => {
+                  .filter(t => isEqual(startOfDay(new Date(t.start)), startOfDay(date)))
+                  .map(task => {
                     const start = new Date(task.start);
                     const end = new Date(task.end);
-                    const top =
-                      ((getHours(start) * 60 + getMinutes(start)) / GRID_MINUTES_PER_SLOT) *
-                      GRID_SLOT_HEIGHT_PX;
-                    const height =
-                      ((end - start) / 60000 / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
+                    const top = ((getHours(start) * 60 + getMinutes(start)) / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
+                    const height = ((end - start) / 60000 / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
+
+                    // Live positions/heights for dragging/resizing
+                    let liveTop = top;
+                    let liveHeight = height;
+
+                    if (draggingTask && draggingTask.id === task.id) {
+                      liveTop = top + draggedOffsetSlots * GRID_SLOT_HEIGHT_PX;
+                    }
+                    if (resizingTask && resizingTask.id === task.id) {
+                      liveHeight = Math.max(height + resizeOffsetSlots * GRID_SLOT_HEIGHT_PX, GRID_SLOT_HEIGHT_PX);
+                    }
 
                     return (
                       <div
                         key={task.id}
                         className="absolute left-1 right-1 z-20 rounded-md text-white p-1 font-semibold shadow-lg cursor-pointer select-text"
                         style={{
-                          top,
-                          height,
+                          top: liveTop,
+                          height: liveHeight,
                           background: getTaskColor(task.id),
                           border: `1.5px solid ${getTaskColor(task.id)}`,
                           boxShadow:
                             "0 2px 6px rgba(0,0,0,0.3), inset 0 0 8px rgba(255,255,255,0.10)",
                           overflow: "hidden",
                           userSelect: "text",
+                          touchAction: "none",
                         }}
                         title={`${task.name}: ${format(start, "p")} – ${format(end, "p")}`}
                         onClick={() => {
-                          setSelectedTask(task);
-                          setSidebarInitialTab("tasks");
-                          setSidebarOpen(true);
+                          if (!dragMovedRef.current) {
+                            setSelectedTask(task);
+                            setSidebarInitialTab("tasks");
+                            setSidebarOpen(true);
+                          }
                         }}
                         role="button"
                         tabIndex={0}
@@ -1296,6 +1558,7 @@ export default function App() {
                             setSidebarOpen(true);
                           }
                         }}
+                        onMouseDown={(e) => onTaskMouseDown(e, task)}
                       >
                         <div className="truncate">{task.name}</div>
                         {task.description && (
@@ -1310,9 +1573,31 @@ export default function App() {
                         <div className="text-[10px] opacity-90" style={{ color: "rgba(255, 255, 255, 0.85)" }}>
                           {format(start, "p")} - {format(end, "p")}
                         </div>
+
+                        {/* Resize Handle */}
+                        <div
+                          onMouseDown={(e) => onResizeHandleMouseDown(e, task)}
+                          style={{
+                            position: "absolute",
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: 6,
+                            cursor: "ns-resize",
+                            background: "rgba(255, 255, 255, 0.3)",
+                            borderBottomLeftRadius: 8,
+                            borderBottomRightRadius: 8,
+                            userSelect: "none",
+                          }}
+                          aria-label="Resize task"
+                          role="button"
+                          tabIndex={-1}
+                        />
                       </div>
                     );
                   })}
+
+
               </div>
             </div>
           ))}
@@ -1328,8 +1613,8 @@ export default function App() {
         }}
         onSubmit={handleModalSubmit}
         initialName={pendingTaskData?.name}
-        initialStart={pendingTaskData?.start}
-        initialEnd={pendingTaskData?.end}
+        initialStart={roundToNearest15(pendingTaskData?.start)}
+        initialEnd={roundToNearest15(pendingTaskData?.end)}
       />
 
       <CreateTaskModal

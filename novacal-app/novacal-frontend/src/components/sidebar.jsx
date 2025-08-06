@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-// Assuming you're using React Router DOM for routing
-// import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx'; // Assuming you still use clsx
 
 import {
@@ -44,9 +42,6 @@ const navLinks = [
 ];
 
 export default function Sidebar() {
-  // Replace with useLocation from react-router-dom
-  // const location = useLocation();
-  // const pathname = location.pathname;
   const [pathname, setPathname] = useState('/dashboard'); // Dummy pathname for demonstration
 
   // Replace with useNavigate from react-router-dom

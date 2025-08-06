@@ -1242,7 +1242,7 @@ export default function CalendarPage() {
           className="grid border rounded-xl overflow-y-auto shadow-inner relative calendar-scrollbar"
           style={{
             gridTemplateColumns: `64px repeat(${viewType}, 1fr)`,
-            height: "calc(100vh - 8-px)",
+            height: "calc(100vh - 82px)",
             backgroundColor: colors.background,
             borderColor: colors.border,
             marginRight: sidebarOpen ? 385 : 0,

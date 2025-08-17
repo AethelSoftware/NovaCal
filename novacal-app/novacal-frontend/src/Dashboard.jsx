@@ -163,8 +163,8 @@ export default function Dashboard() {
             </div>
         </div>
         <div className="grid lg:grid-cols-3 gap-8 mb-8">
-          <div className="lg:col-span-2 space-y-8 ">
-            <div className="flex-1 min-w-0 p-8 rounded-2xl shadow-lg backdrop-blur-md transition-transform group relative overflow-hidden bg-white/10 h-full">
+          <div className="lg:col-span-2 space-y-8">
+            <div className="flex-1 min-w-0 p-8 rounded-2xl shadow-lg backdrop-blur-md transition-transform group relative overflow-hidden bg-white/10 h-[450px]">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="flex items-center text-2xl font-semibold text-stone-900 dark:text-white">
                   <Clock className="mr-3 w-7 h-7 text-stone-700 dark:text-white" />
@@ -173,29 +173,34 @@ export default function Dashboard() {
               </div>
 
               {loading ? (
-                <div className="flex justify-center items-center h-40 text-stone-400">Loading tasks...</div>
+                <div className="flex justify-center items-center h-40 text-stone-400">
+                  Loading tasks...
+                </div>
               ) : error ? (
-                <div className="flex justify-center items-center h-40 text-red-400">{error}</div>
+                <div className="flex justify-center items-center h-40 text-red-400">
+                  {error}
+                </div>
               ) : tasks.length > 0 ? (
-                <ul className="space-y-4">
-                  {tasks.map(task => (
-                    <li
-                      key={task.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-stone-800/50 hover:bg-stone-800/80 transition-colors cursor-pointer"
-                    >
-                      <div className="flex-1 min-w-0 pr-4">
-                        <p className="font-semibold text-white truncate">{task.name}</p>
-                        <p className="text-sm text-stone-400">
-                          {format(new Date(task.start), "p")} - {format(new Date(task.end), "p")}
-                        </p>
-                      </div>
-                      {/* Optional: Add a button to mark as complete */}
-                      <button className="flex-shrink-0 p-2 text-emerald-400 hover:text-emerald-300">
-                        <CheckCircle2 className="w-6 h-6" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <div className="h-[calc(450px-8rem)] overflow-y-auto pr-2 custom-scrollbar">
+                  <ul className="space-y-4">
+                    {tasks.map((task) => (
+                      <li
+                        key={task.id}
+                        className="flex items-center justify-between p-4 rounded-lg bg-stone-800/50 hover:bg-stone-800/80 transition-colors cursor-pointer"
+                      >
+                        <div className="flex-1 min-w-0 pr-4">
+                          <p className="font-semibold text-white truncate">{task.name}</p>
+                          <p className="text-sm text-stone-400">
+                            {format(new Date(task.start), "p")} - {format(new Date(task.end), "p")}
+                          </p>
+                        </div>
+                        <button className="flex-shrink-0 p-2 text-emerald-400 hover:text-emerald-300">
+                          <CheckCircle2 className="w-6 h-6" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : (
                 <div className="flex flex-col justify-center items-center py-20">
                   <div className="relative mb-6">
@@ -211,11 +216,12 @@ export default function Dashboard() {
                     <button className="mt-1 px-6 py-2 rounded-lg border border-stone-300 dark:border-stone-600 bg-white/90 dark:bg-stone-900/30 shadow-sm text-stone-900 dark:text-white font-semibold text-base transition hover:bg-white hover:dark:bg-stone-900/50">
                       Plan Your Day
                     </button>
-                  </a>    
+                  </a>
                 </div>
               )}
             </div>
           </div>
+
 
           <div className="flex flex-col items-center p-8 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md">
             <div className="flex items-center w-full mb-6">

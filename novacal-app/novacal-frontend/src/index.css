@@ -22,3 +22,27 @@
   background-attachment: fixed;
   background-repeat: no-repeat;
 }
+
+/* Put this in globals.css or a module.css */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent; /* optional: subtle background */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #BDBDBD;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9E9E9E;
+}
+
+/* Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #BDBDBD transparent;
+}

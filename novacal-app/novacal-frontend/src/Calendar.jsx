@@ -47,8 +47,6 @@ const colors = {
   timeLabel: "#97a0c3",
   hoveredSlot: "rgba(121, 134, 203, 0.22)",
   selectedSlot: "rgba(127, 90, 240, 0.35)",
-  taskBg: "linear-gradient(135deg, #623CEA 0%, #7F5AF0 100%)",
-  taskBorder: "#7F5AF0",
   headerBg: "#171a25",
   dayLabel: "#c3c8ff",
   now: "#ff3b30",
@@ -401,7 +399,7 @@ export default function CalendarPage() {
     };
 
     return (
-      <nav className="flex items-center gap-3 w-full h-[64px] px-4 border-b border-slate-700 bg-gradient-to-b from-slate-900/80 to-slate-900 text-gray-100 sticky top-0 z-50">
+      <nav className="flex items-center gap-3 w-full h-[64px] px-4 border-b border-slate-700 bg-gray-950 text-gray-100 sticky top-0 z-50">
         <button
           onClick={goPrev}
           className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
@@ -436,7 +434,7 @@ export default function CalendarPage() {
                 onClick={() => setViewType(d)}
                 className={`${
                   viewType === d
-                    ? "bg-indigo-600/70 text-white"
+                    ? "bg-sky-600/70 text-white"
                     : "hover:bg-white/5 text-slate-300"
                 } px-3 py-1.5 transition-colors`}
                 type="button"
@@ -448,7 +446,7 @@ export default function CalendarPage() {
           </div>
           <button
             onClick={() => setCreateModalOpen(true)}
-            className="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-sm shadow"
+            className="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-teal-700 hover:bg-teal-800 text-white text-sm shadow duration-200 cursor-pointer"
             type="button"
           >
             <Plus size={16} /> New Task
@@ -672,14 +670,12 @@ export default function CalendarPage() {
             return (
               <div
                 key={task.id}
-                className="absolute z-20 rounded-md text-white p-1.5 shadow-lg cursor-pointer"
+                className="absolute z-20 rounded-md text-white p-1.5 shadow-lg cursor-pointer bg-gradient-to-b from-teal-700 to-teal-800"
                 style={{
                   top,
                   height,
                   left,
                   width,
-                  background: colors.taskBg,
-                  border: `1px solid ${colors.taskBorder}`,
                   boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
                   overflow: "hidden",
                   display: "flex",

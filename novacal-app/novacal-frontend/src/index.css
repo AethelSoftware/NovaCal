@@ -14,3 +14,11 @@
   background: #623CEA;
 }
 
+/* Add this to your global CSS file */
+.dashboard-background {
+  background-image: url('./assets/img.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}

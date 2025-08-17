@@ -8,7 +8,7 @@ import MainLayout from './layouts/MainLayout';
 
 // Assuming your main content for the single page is in App.jsx
 import CalendarPage from './Calendar';
-import TutorialPage from './Tutorial';
+import DashboardPage from './Dashboard';
 
 import './index.css'; // Your global styles
 
@@ -18,12 +18,12 @@ const router = createBrowserRouter([
     children: [
       // This is the single route that will be rendered inside the <Outlet> of MainLayout
       {
-        path: '/', // The root path for your single page
+        path: '/calendar', // The root path for your single page
         element: <CalendarPage />, // Your main application content
       },
       {
-        path: '/tutorial', // The root path for your single page
-        element: <TutorialPage />, // Your main application content
+        path: '/dashboard', // The root path for your single page
+        element: <DashboardPage />, // Your main application content
       },
       // If you later add more pages that use the sidebar, you'd add them here:
       // {

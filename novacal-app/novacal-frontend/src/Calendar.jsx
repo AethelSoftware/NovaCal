@@ -92,10 +92,6 @@ const colors = {
 
   import Modal from "./components/SimpleModal";
 
-
-
-
-
 // Sidebar updated with start and end time inputs, sending local ISO strings on save
 function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdateTask, tasks, initialTab = "upcoming" }) {
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -485,7 +481,6 @@ function Sidebar({ isOpen, onClose, selectedTask: externalSelectedTask, onUpdate
   );
 }
 
-
 export default function CalendarPage() {
   const [viewType, setViewType] = useState(7);
   const [tasks, setTasks] = useState([]);
@@ -816,7 +811,7 @@ export default function CalendarPage() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 to-black text-gray-100 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 to-black  border border-slate-700 text-gray-100 font-sans">
       <nav
         className="flex items-center gap-3 mb-[16px] w-full h-[64px] mx-auto font-semibold relative p-5 border-b-2 border-gray-400"
         style={{ color: colors.navIcon }}

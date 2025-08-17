@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import clsx from 'clsx'; // Assuming you still use clsx
+import clsx from 'clsx';
 
 import {
-  School,
+  Target,
   CalendarCheck,
   FileClock,
   Presentation,
@@ -36,8 +36,6 @@ const navLinks = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Calendar', href: '/calendar', icon: CalendarCheck },
   { name: 'Hours', href: '/hours', icon: FileClock },
-  { name: 'Message', href: '/message', icon: MessageCircle },
-  { name: 'Meet', href: '/meet', icon: Presentation },
   { name: 'Analytics', href: '/analytics', icon: ChartNoAxesCombined },
 ];
 
@@ -65,7 +63,7 @@ export default function Sidebar() {
   return (
     <aside
       className={clsx(
-        'relative flex flex-col min-h-screen text-white backdrop-blur-lg bg-slate-900 border-r border-stone-400/50 shadow-2xl overflow-hidden z-10 transition-all duration-300',
+        'relative flex flex-col min-h-screen text-white backdrop-blur-lg bg-black border-r border-stone-400/50 shadow-2xl overflow-hidden z-10 transition-all duration-300',
         collapsed ? 'w-20 !p-3' : 'w-64 !p-6'
       )}
     >
@@ -85,14 +83,20 @@ export default function Sidebar() {
       <div className="mb-8 z-10 flex items-center justify-center">
         {!collapsed && (
           <a
-            href="/dashboard" // Use href for a tag, or to for React Router Link
-            onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }} // Simulate navigation
-            className="text-3xl font-extrabold text-white tracking-wide hover:text-sky-300 transition-colors drop-shadow-xl"
+            href="/dashboard"
+            onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}
+            className="text-white w-full drop-shadow-xl flex justify-between items-center"
           >
-            NovaCal
+            <div className="p-3 rounded-xl bg-amber-50/50 mr-3 text-white"><Target></Target></div>
+            <div className='flex-1'>
+              <div className="text-xl font-semibold">Novacal</div>
+              <div className='text-sm text-gray-400'>A new, smart calendar</div>
+            </div>
           </a>
         )}
       </div>
+
+      <div className="text-gray-400 font-semibold mb-3 ">Workspace</div>
 
       <nav className="flex-1 z-10">
         <ul className="space-y-2">
@@ -103,16 +107,13 @@ export default function Sidebar() {
                 ? pathname === '/dashboard'
                 : pathname.startsWith(link.href);
 
-            // Removed isMessageLink and unreadCount logic here
-            // const isMessageLink = link.name === 'MemoryMessage';
-
             return (
               <li key={link.name}>
                 <a
                   href={link.href}
                   onClick={(e) => { e.preventDefault(); navigate(link.href); }}
                   className={clsx(
-                    'relative flex items-center gap-3 !px-4 !py-3 rounded-xl font-medium transition-all duration-200',
+                    'relative flex items-center gap-3 !px-3 !py-2 rounded-xl font-medium transition-all duration-200',
                     {
                       'bg-white/30 text-white shadow-lg ring-1 ring-white/30 backdrop-blur-md': isActive,
                       'hover:bg-white/5 hover:text-blue-300': !isActive,
@@ -122,8 +123,6 @@ export default function Sidebar() {
                 >
                   <LinkIcon className="w-5 h-5" />
                   {!collapsed && <span>{link.name}</span>}
-
-                  {/* Removed unreadCount badge here */}
                 </a>
               </li>
             );
@@ -145,8 +144,8 @@ export default function Sidebar() {
           </button>
         ) : (
           <a
-            href="/login" // Use href for a tag, or to for React Router Link
-            onClick={(e) => { e.preventDefault(); navigate('/login'); login(); }} // Simulate login and navigation
+            href="/login"
+            onClick={(e) => { e.preventDefault(); navigate('/login'); login(); }}
             className={clsx(
               'flex items-center w-full !px-4 !py-3 text-green-300 hover:bg-white/5 rounded-xl transition-all',
               collapsed && 'justify-center'

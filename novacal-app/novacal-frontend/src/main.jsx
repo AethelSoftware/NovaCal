@@ -14,22 +14,20 @@ import './index.css'; // Your global styles
 
 const router = createBrowserRouter([
   {
-    element: <MainLayout />, // This route uses your MainLayout
+    element: <MainLayout />,
     children: [
-      // This is the single route that will be rendered inside the <Outlet> of MainLayout
       {
-        path: '/calendar', // The root path for your single page
-        element: <CalendarPage />, // Your main application content
+        path: '/calendar',
+        element: <CalendarPage />,
       },
       {
-        path: '/dashboard', // The root path for your single page
-        element: <DashboardPage />, // Your main application content
+        path: '/dashboard',
+        element: <DashboardPage />,
       },
-      // If you later add more pages that use the sidebar, you'd add them here:
-      // {
-      //   path: '/about',
-      //   element: <AboutPage />,
-      // },
+      {
+        path: '/',
+        element: <DashboardPage />,
+      },
     ],
   },
 ]);

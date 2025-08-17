@@ -95,8 +95,10 @@ export default function Sidebar() {
           </a>
         )}
       </div>
-
-      <div className="text-gray-400 font-semibold mb-3 ">Workspace</div>
+      
+      {!collapsed && (
+        <div className="text-gray-400 font-semibold mb-3 ">Workspace</div>
+      )}
 
       <nav className="flex-1 z-10">
         <ul className="space-y-2">

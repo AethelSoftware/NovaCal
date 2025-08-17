@@ -1,231 +1,190 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   format,
   addDays,
   startOfWeek,
   addMinutes,
-  isBefore,
   isAfter,
   isEqual,
   startOfDay,
   getHours,
   getMinutes,
+  differenceInMinutes,
 } from "date-fns";
 import {
   ChevronLeft,
   ChevronRight,
-  Settings,
-  X,
-  PanelLeftClose,
   PanelRightClose,
+  PanelLeftClose,
   Plus,
-  ZapOff,
-  Zap,
-  AlertTriangle,
 } from "lucide-react";
+
 import {
   roundToNearest15,
   floorTo15,
   ceilTo15,
-  toLocalISOString
+  toLocalISOString,
 } from "./utils/calendarUtils";
 
 import CreateTaskModal from "./components/CustomTaskModal";
+import Modal from "./components/SimpleModal";
+import CalendarSidebar from "./components/CalendarSidebar";
 
-
-
-const GRID_SLOT_HEIGHT_PX = 16;
+// ===== Constants =====
+const GRID_SLOT_HEIGHT_PX = 16; // 1 slot = 15 minutes
 const GRID_MINUTES_PER_SLOT = 15;
+const SLOTS_PER_HOUR = 60 / GRID_MINUTES_PER_SLOT; // 4
 const HOURS_IN_DAY = 24;
 const VIEW_OPTIONS = [1, 3, 5, 7];
+const HEADER_HEIGHT = 64; // column header height in px
 
-// Color palette (unchanged)
+// Color palette
 const colors = {
-  background: "#121217",
-  border: "#2a2a40",
-  timeLabel: "#8a8ec6",
-  hoveredSlot: "rgba(121, 134, 203, 0.25)",
-  selectedSlot: "rgba(75, 172, 198, 0.5)",
+  background: "#0f1117",
+  border: "#2b2f42",
+  timeLabel: "#97a0c3",
+  hoveredSlot: "rgba(121, 134, 203, 0.22)",
+  selectedSlot: "rgba(127, 90, 240, 0.35)",
   taskBg: "linear-gradient(135deg, #623CEA 0%, #7F5AF0 100%)",
   taskBorder: "#7F5AF0",
-  headerBg: "#1E1E2F",
-  dayLabel: "#a3a3f7",
-  navIcon: "#7F7FEB",
-  navIconHover: "#b3b3fc",
-  settingsBg: "#1c1c30",
-  settingsBorder: "#444478",
-  settingsOptionActive: "#7f5af0",
-  settingsOptionHover: "#2a2a40",
+  headerBg: "#171a25",
+  dayLabel: "#c3c8ff",
+  now: "#ff3b30",
+  pastTint: "rgba(255,255,255,0.02)",
 };
 
-  import Modal from "./components/SimpleModal";
-  import CalendarSidebar from "./components/CalendarSidebar";
+// ===== Helpers =====
+const minutesSinceStartOfDay = (d) => getHours(d) * 60 + getMinutes(d);
+const pxFromMinutes = (mins) => (mins / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
+const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
+// Overlap layout algorithm (per-day)
+function layoutEventsForDay(events) {
+  const evts = [...events].sort((a, b) => {
+    const diff = a.start - b.start;
+    if (diff !== 0) return diff;
+    return (b.end - b.start) - (a.end - a.start);
+  });
+
+  const layouts = new Map();
+  let cluster = [];
+  let clusterEnd = null;
+
+  const flushCluster = (items) => {
+    if (!items.length) return;
+    const active = [];
+    let maxCol = 0;
+    for (const evt of items) {
+      for (let i = active.length - 1; i >= 0; i--) {
+        if (active[i].end <= evt.start) active.splice(i, 1);
+      }
+      const used = new Set(active.map((a) => a.col));
+      let col = 0;
+      while (used.has(col)) col++;
+      maxCol = Math.max(maxCol, col);
+      active.push({ evt, col, end: evt.end });
+      layouts.set(evt.id, { col });
+    }
+    const totalCols = maxCol + 1;
+    const widthPct = 100 / totalCols;
+    for (const evt of items) {
+      const { col } = layouts.get(evt.id);
+      const leftPct = col * widthPct;
+      layouts.set(evt.id, {
+        col,
+        colsInGroup: totalCols,
+        leftPct,
+        widthPct,
+      });
+    }
+  };
+
+  for (const e of evts) {
+    if (!cluster.length) {
+      cluster = [e];
+      clusterEnd = e.end;
+      continue;
+    }
+    if (e.start < clusterEnd) {
+      cluster.push(e);
+      if (e.end > clusterEnd) clusterEnd = e.end;
+    } else {
+      flushCluster(cluster);
+      cluster = [e];
+      clusterEnd = e.end;
+    }
+  }
+  flushCluster(cluster);
+
+  return layouts;
+}
 
 export default function CalendarPage() {
+  // ===== State =====
   const [viewType, setViewType] = useState(7);
   const [tasks, setTasks] = useState([]);
-
-  const [startDay, setStartDay] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartTime, setDragStartTime] = useState(null);
-  const [dragEndTime, setDragEndTime] = useState(null);
-  const [hoverTime, setHoverTime] = useState(null);
-  const calendarRef = useRef(null);
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [pendingTaskData, setPendingTaskData] = useState(null);
+  const [startDay, setStartDay] = useState(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarInitialTab, setSidebarInitialTab] = useState("upcoming");
   const [selectedTask, setSelectedTask] = useState(null);
 
-  const [createModalOpen, setCreateModalOpen] = useState(false); // NEW
+  const [modalOpen, setModalOpen] = useState(false);
+  const [pendingTaskData, setPendingTaskData] = useState(null);
 
-  // For dragging/resizing task behavior
-  const [draggingTask, setDraggingTask] = useState(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectStart, setSelectStart] = useState(null);
+  const [selectEnd, setSelectEnd] = useState(null);
+  const [hoverTime, setHoverTime] = useState(null);
+  const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
+
+  const [draggingTaskId, setDraggingTaskId] = useState(null);
   const [dragStartY, setDragStartY] = useState(0);
-  const [draggedOffsetSlots, setDraggedOffsetSlots] = useState(0);
-  const [resizingTask, setResizingTask] = useState(null);
+  const [dragOriginalStart, setDragOriginalStart] = useState(null);
+  const [dragOriginalEnd, setDragOriginalEnd] = useState(null);
+
+  const [resizingTaskId, setResizingTaskId] = useState(null);
+  const [resizeEdge, setResizeEdge] = useState(null); // "top" | "bottom"
   const [resizeStartY, setResizeStartY] = useState(0);
-  const [resizeOffsetSlots, setResizeOffsetSlots] = useState(0);
+  const [resizeOriginalStart, setResizeOriginalStart] = useState(null);
+  const [resizeOriginalEnd, setResizeOriginalEnd] = useState(null);
 
-  const dragMovedRef = useRef(false); // To distinguish clicks from drags
+  const dragMovedRef = useRef(false);
 
-  // Helper: slots to minutes
-  const slotsToMinutes = (slots) => slots * GRID_MINUTES_PER_SLOT;
+  // Refs & now-line
+  const calendarRef = useRef(null);
+  const [now, setNow] = useState(new Date());
 
-  // Helper: update a task's time and call onUpdateTask
-  const updateTaskTimes = (taskId, newStart, newEnd) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-    const updated = {
-      ...task,
-      start: toLocalISOString(newStart),
-      end: toLocalISOString(newEnd),
-    };
-    onUpdateTask(updated);
-  };
-
-  const onTaskMouseDown = (e, task) => {
-    if (e.button !== 0) return; // only left click to drag
-    e.stopPropagation();
-    dragMovedRef.current = false;
-    setDraggingTask(task);
-    setDragStartY(e.clientY);
-    setDraggedOffsetSlots(0);
-  };
-
-  const onResizeHandleMouseDown = (e, task) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setResizingTask(task);
-    setResizeStartY(e.clientY);
-    setResizeOffsetSlots(0);
-  };
-
-  const onMouseMove = (e) => {
-    if (draggingTask) {
-      const deltaY = e.clientY - dragStartY;
-      const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
-      setDraggedOffsetSlots(slotsMoved);
-    }
-    if (resizingTask) {
-      const deltaY = e.clientY - resizeStartY;
-      const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
-      setResizeOffsetSlots(slotsMoved);
-    }
-  };
-
-  const onMouseUp = () => {
-  // Handle dragging move end
-  if (draggingTask) {
-    const oldStart = new Date(draggingTask.start);
-    const oldEnd = new Date(draggingTask.end);
-    const durationMs = oldEnd - oldStart;
-
-    let newStart = addMinutes(oldStart, slotsToMinutes(draggedOffsetSlots));
-
-    // Clamp newStart between startOfDay and last allowed start time (so task doesn't overflow the day)
-    if (newStart.getDate() !== oldStart.getDate()) {
-      // Drag moved task to a different day - cancel move
-      setDraggingTask(null);
-      setDraggedOffsetSlots(0);
-      return;
-    }
-    if (newStart < startOfDay(newStart)) newStart = startOfDay(newStart);
-    if (newStart > addMinutes(startOfDay(newStart), 24 * 60 - durationMs / 60000)) {
-      newStart = addMinutes(startOfDay(newStart), 24 * 60 - durationMs / 60000);
-    }
-
-    const newEnd = new Date(newStart.getTime() + durationMs);
-
-    // Snap start and end times to nearest 15 minutes
-    const roundedStart = floorTo15(newStart);
-    const roundedEnd = floorTo15(newEnd);
-
-    // Update task times using your updater
-    updateTaskTimes(draggingTask.id, roundedStart, roundedEnd);
-
-    // Clear dragging state
-    setDraggingTask(null);
-    setDraggedOffsetSlots(0);
-  }
-
-  // Handle resizing end
-  if (resizingTask) {
-    const oldStart = new Date(resizingTask.start);
-    const oldEnd = new Date(resizingTask.end);
-
-    // Calculate new duration based on resize offset slots
-    const newDurationMs =
-      oldEnd.getTime() - oldStart.getTime() + slotsToMinutes(resizeOffsetSlots) * 60000;
-
-    // Enforce minimum duration 15 minutes
-    if (newDurationMs < 15 * 60 * 1000) {
-      setResizingTask(null);
-      setResizeOffsetSlots(0);
-      return;
-    }
-
-    const newEnd = addMinutes(oldStart, Math.floor(newDurationMs / 60000));
-
-    // Prevent task from crossing over to next day
-    if (newEnd.getDate() !== oldStart.getDate()) {
-      setResizingTask(null);
-      setResizeOffsetSlots(0);
-      return;
-    }
-
-    // Snap end time up to nearest 15 minutes
-    const roundedEnd = ceilTo15(newEnd);
-
-    // Update task times
-    updateTaskTimes(resizingTask.id, oldStart, roundedEnd);
-
-    // Clear resizing state
-    setResizingTask(null);
-    setResizeOffsetSlots(0);
-  }
-};
-
-
-
-  // Attach window listeners for mousemove and mouseup
+  // Update "now" every minute for the live now-line
   useEffect(() => {
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [draggingTask, dragStartY, draggedOffsetSlots, resizingTask, resizeStartY, resizeOffsetSlots]);
+    const tick = () => setNow(new Date());
+    const id = setInterval(tick, 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
+  // Scroll to "now" when mounting or when changing to a range that includes today
+  useEffect(() => {
+    const today = startOfDay(new Date());
+    const days = Array.from({ length: viewType }, (_, i) =>
+      addDays(startDay, i)
+    );
+    const includesToday = days.some((d) => isEqual(startOfDay(d), today));
+    if (!calendarRef.current || !includesToday) return;
+    const minutes = minutesSinceStartOfDay(now);
+    const y = pxFromMinutes(minutes) - 200;
+    calendarRef.current.scrollTo({
+      top: clamp(y, 0, 99999),
+      behavior: "smooth",
+    });
+  }, [startDay, viewType, now]);
 
-
+  // ===== Data fetching =====
   useEffect(() => {
     const fetchTasks = async () => {
       try {
@@ -261,7 +220,6 @@ export default function CalendarPage() {
 
   const addNewCustomTask = async (task) => {
     try {
-      // Corrected: Post custom tasks to the /api/custom_tasks endpoint
       const res = await fetch("http://127.0.0.1:5000/api/custom_tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -270,11 +228,10 @@ export default function CalendarPage() {
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to add custom task");
-      }      // For custom tasks, you might want to fetch all tasks again to see the blocks
-      // or selectively add the blocks and the custom task entry
-      // For simplicity, we can refetch all tasks to get the newly created blocks too
+      }
       const updatedTasksRes = await fetch("http://127.0.0.1:5000/api/tasks");
-      if (!updatedTasksRes.ok) throw new Error("Failed to refetch tasks after custom task creation");
+      if (!updatedTasksRes.ok)
+        throw new Error("Failed to refetch tasks after custom task creation");
       const updatedTasks = await updatedTasksRes.json();
       setTasks(updatedTasks);
       alert("Custom task and its blocks created successfully!");
@@ -284,57 +241,559 @@ export default function CalendarPage() {
     }
   };
 
-  const daysToShow = Array.from({ length: viewType }).map((_, i) => addDays(startDay, i));
+  const onUpdateTask = async (updatedTask) => {
+    try {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+      );
+      const res = await fetch(
+        `http://127.0.0.1:5000/api/tasks/${updatedTask.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: updatedTask.name,
+            description: updatedTask.description,
+            links: updatedTask.links,
+            start: updatedTask.start,
+            end: updatedTask.end,
+          }),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to update task");
+      const fresh = await res.json();
+      setTasks((prev) =>
+        prev.map((t) => (t.id === fresh.id ? fresh : t))
+      );
+    } catch (err) {
+      console.error("Error updating task:", err);
+      alert("Error updating task: " + err.message);
+    }
+  };
 
-  const getSnappedSlotDate = (yPx, columnDate) => {
-    if (!calendarRef.current) return new Date(columnDate);
-    const rect = calendarRef.current.getBoundingClientRect();
-    const relativeY = yPx - rect.top + calendarRef.current.scrollTop;
-    const totalMinutes = (relativeY / GRID_SLOT_HEIGHT_PX) * GRID_MINUTES_PER_SLOT;
-    const snapped = Math.floor(totalMinutes / GRID_MINUTES_PER_SLOT) * GRID_MINUTES_PER_SLOT;
+  // ===== Derived =====
+  const daysToShow = useMemo(
+    () => Array.from({ length: viewType }, (_, i) => addDays(startDay, i)),
+    [viewType, startDay]
+  );
+
+  const tasksByDay = useMemo(() => {
+    const map = new Map();
+    for (const d of daysToShow) {
+      map.set(+startOfDay(d), []);
+    }
+    for (const t of tasks) {
+      const key = +startOfDay(new Date(t.start));
+      if (map.has(key)) map.get(key).push(t);
+    }
+    for (const [, arr] of map) {
+      arr.sort((a, b) => new Date(a.start) - new Date(b.start));
+    }
+    return map;
+  }, [tasks, daysToShow]);
+
+  // ===== Interaction helpers =====
+  const slotsToMinutes = (slots) => slots * GRID_MINUTES_PER_SLOT;
+
+  const updateTaskTimes = (taskId, newStart, newEnd) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const updated = {
+      ...task,
+      start: toLocalISOString(newStart),
+      end: toLocalISOString(newEnd),
+    };
+    onUpdateTask(updated);
+  };
+
+  const getSnappedSlotDate = (yPx, scrollEl, columnDate) => {
+    if (!scrollEl) return new Date(columnDate);
+    const rect = scrollEl.getBoundingClientRect();
+    let relativeY = yPx - rect.top + scrollEl.scrollTop - HEADER_HEIGHT;
+    if (relativeY < 0) relativeY = 0;
+    const totalMinutes =
+      (relativeY / GRID_SLOT_HEIGHT_PX) * GRID_MINUTES_PER_SLOT;
+    const snapped =
+      Math.floor(totalMinutes / GRID_MINUTES_PER_SLOT) * GRID_MINUTES_PER_SLOT;
     const d = new Date(columnDate);
     d.setHours(0, snapped, 0, 0);
     return d;
   };
 
-  const handleMouseDown = (e, slotDate) => {
-    if (e.button !== 0) return;
-    setIsDragging(true);
-    setDragStartTime(slotDate);
-    setDragEndTime(slotDate);
+  // Global pointer handlers for dragging/resizing
+  useEffect(() => {
+    const onPointerMove = (e) => {
+      if (draggingTaskId != null) {
+        dragMovedRef.current = true;
+        const deltaY = e.clientY - dragStartY;
+        const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
+        const newStart = addMinutes(dragOriginalStart, slotsToMinutes(slotsMoved));
+        const duration = differenceInMinutes(dragOriginalEnd, dragOriginalStart);
+        let ns = new Date(newStart);
+        let ne = addMinutes(ns, duration);
+        if (!isEqual(startOfDay(ns), startOfDay(dragOriginalStart))) return;
+        const snappedStart = floorTo15(ns);
+        const snappedEnd = floorTo15(ne);
+        updateTaskTimes(draggingTaskId, snappedStart, snappedEnd);
+      }
+      if (resizingTaskId != null) {
+        const deltaY = e.clientY - resizeStartY;
+        const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
+        let ns = new Date(resizeOriginalStart);
+        let ne = new Date(resizeOriginalEnd);
+        if (resizeEdge === "bottom") {
+          ne = addMinutes(resizeOriginalEnd, slotsToMinutes(slotsMoved));
+          if (!isEqual(startOfDay(ne), startOfDay(resizeOriginalStart))) return;
+          ne = ceilTo15(ne);
+        } else {
+          ns = addMinutes(resizeOriginalStart, slotsToMinutes(slotsMoved));
+          if (!isEqual(startOfDay(ns), startOfDay(resizeOriginalStart))) return;
+          ns = floorTo15(ns);
+        }
+        if (differenceInMinutes(ne, ns) < 15) return;
+        updateTaskTimes(resizingTaskId, ns, ne);
+      }
+    };
+    const onPointerUp = () => {
+      setDraggingTaskId(null);
+      setResizingTaskId(null);
+      setResizeEdge(null);
+    };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+    // eslint-disable-next-line
+  }, [
+    draggingTaskId,
+    dragStartY,
+    dragOriginalStart,
+    dragOriginalEnd,
+    resizeStartY,
+    resizeOriginalEnd,
+    resizeOriginalStart,
+    resizeEdge,
+  ]);
+
+  // ===== UI pieces =====
+  const Header = () => {
+    const first = daysToShow[0];
+    const last = daysToShow[daysToShow.length - 1];
+    const sameMonth = format(first, "MMM") === format(last, "MMM");
+    const rangeLabel = sameMonth
+      ? `${format(first, "MMM d")} – ${format(last, "d, yyyy")}`
+      : `${format(first, "MMM d")} – ${format(last, "MMM d, yyyy")}`;
+
+    const goPrev = () => setStartDay(addDays(startDay, -viewType));
+    const goNext = () => setStartDay(addDays(startDay, viewType));
+    // Fix for today: should always set startDay so that today is visible and first column is today if 1-day, else week containing today
+    const goToday = () => {
+      const today = new Date();
+      if (viewType === 1) {
+        setStartDay(startOfDay(today));
+      } else {
+        // Calculate offset so today is in the center of the view
+        const offset = Math.floor(viewType / 3);
+        setStartDay(addDays(startOfDay(today), -offset));
+      }
+    };
+
+    return (
+      <nav className="flex items-center gap-3 w-full h-[64px] px-4 border-b border-slate-700 bg-gradient-to-b from-slate-900/80 to-slate-900 text-gray-100 sticky top-0 z-50">
+        <button
+          onClick={goPrev}
+          className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          aria-label="Previous"
+          type="button"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <button
+          onClick={goNext}
+          className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          aria-label="Next"
+          type="button"
+        >
+          <ChevronRight size={20} />
+        </button>
+        <button
+          onClick={goToday}
+          className="px-3 py-1.5 rounded-md border border-slate-600 hover:bg-white/5 text-sm"
+          type="button"
+        >
+          Today
+        </button>
+        <div className="ml-2 text-sm sm:text-base font-semibold tracking-wide text-slate-200">
+          {rangeLabel}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="inline-flex rounded-lg bg-slate-800/80 border border-slate-700 overflow-hidden text-xs">
+            {VIEW_OPTIONS.map((d) => (
+              <button
+                key={d}
+                onClick={() => setViewType(d)}
+                className={`${
+                  viewType === d
+                    ? "bg-indigo-600/70 text-white"
+                    : "hover:bg-white/5 text-slate-300"
+                } px-3 py-1.5 transition-colors`}
+                type="button"
+                aria-pressed={viewType === d}
+              >
+                {d} day{d > 1 ? "s" : ""}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-sm shadow"
+            type="button"
+          >
+            <Plus size={16} /> New Task
+          </button>
+        </div>
+      </nav>
+    );
   };
 
-  const handleMouseMove = (e, columnDate) => {
-    const snappedDate = getSnappedSlotDate(e.clientY, columnDate);
-    setHoverTime(snappedDate);
-    if (isDragging) setDragEndTime(snappedDate);
+  const TimeGutter = () => {
+    const minutes = minutesSinceStartOfDay(now);
+    const nowTop = pxFromMinutes(minutes);
+    return (
+      <div
+        className="sticky left-0 top-0 z-30 border-r bg-slate-950"
+        style={{
+          borderColor: colors.border,
+          gridRow: "1 / -1",
+        }}
+      >
+        <div
+          className="h-16 flex items-center justify-center text-[10px] font-semibold border-b"
+          style={{ color: colors.timeLabel, borderColor: colors.border }}
+        >
+          Time
+        </div>
+        {/* Hours */}
+        {Array.from({ length: HOURS_IN_DAY }).map((_, hour) => (
+          <div
+            key={hour}
+            className="relative border-t flex items-start justify-center select-none"
+            style={{
+              height: GRID_SLOT_HEIGHT_PX * SLOTS_PER_HOUR,
+              borderColor: colors.border,
+            }}
+          >
+            <span
+              className="absolute -top-1 text-[10px] font-semibold"
+              style={{ color: colors.timeLabel }}
+            >
+              {format(new Date().setHours(hour, 0, 0, 0), "ha")}
+            </span>
+          </div>
+        ))}
+        {/* Now dot in gutter when today visible */}
+        {daysToShow.some((d) => isEqual(startOfDay(d), startOfDay(now))) && (
+          <div
+            className="absolute left-0 right-0 pointer-events-none"
+            style={{ top: HEADER_HEIGHT + nowTop }}
+          >
+            <div className="flex items-center gap-2 pl-2">
+              <span
+                className="inline-block w-2 h-2 rounded-full"
+                style={{ background: colors.now }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
-  const cleanUpDrag = useCallback(() => {
-    setIsDragging(false);
-    setDragStartTime(null);
-    setDragEndTime(null);
-    setHoverTime(null);
-  }, []);
+  function DayColumn({ date }) {
+    const dayKey = +startOfDay(date);
+    const dayTasks = tasksByDay.get(dayKey) || [];
 
-  const handleMouseUp = useCallback(() => {
-    if (!dragStartTime || !dragEndTime) return cleanUpDrag();
-    setIsDragging(false);
+    // Convert tasks to Date objects
+    const prepared = useMemo(
+      () =>
+        dayTasks.map((t) => ({
+          ...t,
+          start: new Date(t.start),
+          end: new Date(t.end),
+        })),
+      [dayTasks]
+    );
 
-    let start = dragStartTime;
-    let end = dragEndTime;
-    if (isAfter(start, end)) [start, end] = [end, start];
+    const layouts = useMemo(() => layoutEventsForDay(prepared), [prepared]);
+
+    // Hover time indicator within this column
+    const onMouseMove = (e) => {
+      const snapped = getSnappedSlotDate(e.clientY, calendarRef.current, date);
+      setHoverTime(snapped);
+      const rect = calendarRef.current?.getBoundingClientRect();
+      setHoverPos({ x: e.clientX - (rect?.left || 0), y: e.clientY - (rect?.top || 0) });
+      if (isSelecting) setSelectEnd(snapped);
+    };
+
+    const onMouseDown = (e) => {
+      if (e.button !== 0) return;
+      const snapped = getSnappedSlotDate(e.clientY, calendarRef.current, date);
+      setIsSelecting(true);
+      setSelectStart(snapped);
+      setSelectEnd(snapped);
+    };
+
+    const onMouseLeave = () => setHoverTime(null);
+
+    // Compute "now" visuals if today
+    const isToday = isEqual(startOfDay(date), startOfDay(now));
+    const nowTop = pxFromMinutes(minutesSinceStartOfDay(now));
+
+    return (
+      <div
+        className="calendar-day relative flex flex-col border-r"
+        style={{ backgroundColor: colors.background, borderColor: colors.border }}
+        onMouseMove={onMouseMove}
+        onMouseDown={onMouseDown}
+        onMouseLeave={onMouseLeave}
+      >
+        {/* Header */}
+        <div
+          className="sticky top-0 z-40 border-b flex flex-col items-center justify-center text-center"
+          style={{
+            height: HEADER_HEIGHT,
+            backgroundColor: colors.headerBg,
+            borderColor: colors.border,
+            color: colors.dayLabel,
+            userSelect: "none",
+          }}
+        >
+          <span className="uppercase text-xs tracking-wider">
+            {format(date, "EEE")}
+          </span>
+          <span className={`mt-1 text-lg font-bold ${isToday ? "text-white" : "text-slate-100"}`}>
+            {format(date, "MMM d")}
+          </span>
+        </div>
+        {/* Grid */}
+        <div className="relative flex-grow select-none">
+          {Array.from({ length: HOURS_IN_DAY * SLOTS_PER_HOUR }).map((_, i) => (
+            <div
+              key={i}
+              className="border-t"
+              style={{ height: GRID_SLOT_HEIGHT_PX, borderColor: colors.border }}
+            />
+          ))}
+          {/* Past tint for today */}
+          {isToday && (
+            <div
+              className="absolute left-0 right-0 pointer-events-none"
+              style={{
+                top: 0,
+                height: nowTop,
+                background: colors.pastTint,
+              }}
+            />
+          )}
+          {/* Now line across today */}
+          {isToday && (
+            <div
+              className="absolute left-0 right-0 z-30 pointer-events-none"
+              style={{ top: nowTop }}
+            >
+              <div className="h-0.5" style={{ background: colors.now }} />
+            </div>
+          )}
+          {/* Hover slot highlight */}
+          {hoverTime && isEqual(startOfDay(hoverTime), startOfDay(date)) && (
+            <div
+              className="absolute left-0 right-0 z-10"
+              style={{
+                top: pxFromMinutes(minutesSinceStartOfDay(hoverTime)),
+                height: GRID_SLOT_HEIGHT_PX,
+                background: colors.hoveredSlot,
+                pointerEvents: "none",
+              }}
+            />
+          )}
+          {/* Hover time bubble */}
+          {hoverTime && (
+            <div
+              className="absolute z-40 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 border border-slate-600 shadow"
+              style={{
+                left: clamp(hoverPos.x + 8, 0, 9999),
+                top: clamp(hoverPos.y - 12, 0, 9999),
+              }}
+            >
+              {format(hoverTime, "p")}
+            </div>
+          )}
+          {/* Selection highlight */}
+          {isSelecting &&
+            selectStart &&
+            selectEnd &&
+            isEqual(startOfDay(selectStart), startOfDay(date)) &&
+            (() => {
+              const [s, e] = isAfter(selectStart, selectEnd)
+                ? [selectEnd, selectStart]
+                : [selectStart, selectEnd];
+              const top = pxFromMinutes(minutesSinceStartOfDay(s));
+              const height = pxFromMinutes(
+                differenceInMinutes(addMinutes(e, GRID_MINUTES_PER_SLOT), s)
+              );
+              return (
+                <div
+                  className="absolute left-1 right-1 rounded-md"
+                  style={{
+                    top,
+                    height,
+                    background: colors.selectedSlot,
+                    outline: `1px dashed ${colors.taskBorder}`,
+                  }}
+                />
+              );
+            })()}
+          {/* Task blocks */}
+          {prepared.map((task) => {
+            const start = task.start;
+            const end = task.end;
+            const top = pxFromMinutes(minutesSinceStartOfDay(start));
+            const height = pxFromMinutes(differenceInMinutes(end, start));
+            const lay = layouts.get(task.id) || { leftPct: 0, widthPct: 100 };
+            const left = `calc(${lay.leftPct}% + 2px)`;
+            const width = `calc(${lay.widthPct}% - 4px)`;
+            const showTime = height >= 40;
+            const showDescription = height >= 64;
+            const isPastTask = isToday && end <= now;
+
+            // Click sidebar fix: open sidebar with the task only if not resizing/moving
+            return (
+              <div
+                key={task.id}
+                className="absolute z-20 rounded-md text-white p-1.5 shadow-lg cursor-pointer"
+                style={{
+                  top,
+                  height,
+                  left,
+                  width,
+                  background: colors.taskBg,
+                  border: `1px solid ${colors.taskBorder}`,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+                  overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  userSelect: "none",
+                }}
+                title={`${task.name}: ${format(start, "p")} – ${format(
+                  end,
+                  "p"
+                )}`}
+                onMouseDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.stopPropagation();
+                  dragMovedRef.current = false;
+                  setDraggingTaskId(task.id);
+                  setDragStartY(e.clientY);
+                  setDragOriginalStart(start);
+                  setDragOriginalEnd(end);
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (dragMovedRef.current) return; // ignore if it was actually a drag
+                  setSelectedTask(task);
+                  setSidebarInitialTab("tasks");
+                  setSidebarOpen(true);
+                }}
+
+              >
+                {isPastTask && (
+                  <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+                )}
+                <div className="truncate font-bold leading-tight text-[12px] relative z-10">
+                  {task.name}
+                </div>
+                {showTime && (
+                  <div className="text-[11px] opacity-90 font-medium relative z-10">
+                    {format(start, "p")} – {format(end, "p")}
+                  </div>
+                )}
+                {showDescription && task.description && (
+                  <div className="text-[10px] italic opacity-80 truncate relative z-10">
+                    {task.description}
+                  </div>
+                )}
+                {/* Resize handles */}
+                <div
+                  className="absolute left-0 right-0 h-1.5 cursor-ns-resize opacity-70"
+                  style={{ top: -1, background: "transparent" }}
+                  onMouseDown={(e) => {
+                    setResizingTaskId(task.id);
+                    setResizeEdge("top");
+                    setResizeStartY(e.clientY);
+                    setResizeOriginalStart(start);
+                    setResizeOriginalEnd(end);
+                  }}
+                  
+                />
+                <div
+                  className="absolute left-0 right-0 h-2 cursor-ns-resize opacity-70"
+                  style={{ bottom: -1, background: "transparent" }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    setResizingTaskId(task.id);
+                    setResizeEdge("bottom");
+                    setResizeStartY(e.clientY);
+                    setResizeOriginalStart(start);
+                    setResizeOriginalEnd(end);
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Finish selection -> create modal
+  const finishSelection = useCallback(() => {
+    if (!isSelecting || !selectStart || !selectEnd) return;
+    let [start, end] = isAfter(selectStart, selectEnd)
+      ? [selectEnd, selectStart]
+      : [selectStart, selectEnd];
     end = addMinutes(end, GRID_MINUTES_PER_SLOT);
-
     if (!isEqual(startOfDay(start), startOfDay(end))) {
       alert("Tasks must stay on the same day.");
-      return cleanUpDrag();
+    } else {
+      setPendingTaskData({ start, end, name: "" });
+      setModalOpen(true);
     }
+    setIsSelecting(false);
+    setSelectStart(null);
+    setSelectEnd(null);
+    setHoverTime(null);
+  }, [isSelecting, selectStart, selectEnd]);
 
-    setPendingTaskData({ start, end, name: "" });
-    setModalOpen(true);
-    cleanUpDrag();
-  }, [dragStartTime, dragEndTime, cleanUpDrag]);
+  useEffect(() => {
+    const el = calendarRef.current;
+    if (!el) return;
+    const up = () => finishSelection();
+    const leave = () => {
+      setIsSelecting(false);
+      setSelectStart(null);
+      setSelectEnd(null);
+      setHoverTime(null);
+    };
+    el.addEventListener("mouseup", up);
+    el.addEventListener("mouseleave", leave);
+    return () => {
+      el.removeEventListener("mouseup", up);
+      el.removeEventListener("mouseleave", leave);
+    };
+  }, [finishSelection]);
 
   const handleModalSubmit = (taskDetails) => {
     if (!taskDetails.name) {
@@ -346,423 +805,32 @@ export default function CalendarPage() {
     setPendingTaskData(null);
   };
 
-  useEffect(() => {
-    if (!calendarRef.current) return;
-
-    const el = calendarRef.current;
-    el.addEventListener("mouseup", handleMouseUp);
-    el.addEventListener("mouseleave", cleanUpDrag);
-    return () => {
-      el.removeEventListener("mouseup", handleMouseUp);
-      el.removeEventListener("mouseleave", cleanUpDrag);
-    };
-  }, [handleMouseUp, cleanUpDrag]);
-
-  const onUpdateTask = async (updatedTask) => {
-  try {
-    // Optimistically update local state immediately
-    setTasks(prevTasks => prevTasks.map(t => t.id === updatedTask.id ? updatedTask : t));
-
-    // Update backend
-    const res = await fetch(`http://127.0.0.1:5000/api/tasks/${updatedTask.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: updatedTask.name,
-        description: updatedTask.description,
-        links: updatedTask.links,
-        start: updatedTask.start,
-        end: updatedTask.end,
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error("Failed to update task");
-    }
-
-    const freshTask = await res.json();
-
-    // Sync with backend response (optional, in case backend modifies it)
-    setTasks(prevTasks => prevTasks.map(t => t.id === freshTask.id ? freshTask : t));
-
-  } catch (error) {
-    console.error("Error updating task:", error);
-    alert("Error updating task: " + error.message);
-  }
-};
-
-
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 to-black  border border-slate-700 text-gray-100 font-sans">
-      <nav
-        className="flex items-center gap-3 mb-[16px] w-full h-[64px] mx-auto font-semibold relative p-5 border-b-2 border-gray-400"
-        style={{ color: colors.navIcon }}
-      >
-        <button
-          onClick={() => setStartDay(addDays(startDay, -viewType))}
-          className="p-2 rounded transition-colors shadow-md shadow-black cursor-pointer"
-          style={{ backgroundColor: "transparent" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = colors.navIconHover)}
-          onMouseLeave={(e) => (e.currentTarget.style.color = colors.navIcon)}
-          aria-label="Previous"
-          type="button"
-        >
-          <ChevronLeft size={20} />
-        </button>
-
-        <button
-          onClick={() => setStartDay(addDays(startDay, viewType))}
-          className="p-2 rounded transition-colors shadow-md shadow-black cursor-pointer"
-          style={{ backgroundColor: "transparent" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = colors.navIconHover)}
-          onMouseLeave={(e) => (e.currentTarget.style.color = colors.navIcon)}
-          aria-label="Next"
-          type="button"
-        >
-          <ChevronRight size={20} />
-        </button>
-
-        <button
-          onClick={() => setCreateModalOpen(true)}
-          className="ml-2 flex items-center gap-1 p-3 rounded cursor-pointer transition-colors shadow-md shadow-black"
-          style={{ backgroundColor: "transparent", color: colors.navIcon }}
-          aria-label="Create New Task"
-          type="button"
-        >
-          <Plus size={18} />
-          <span className="hidden md:inline select-none">New Task</span>
-        </button>
-
-        <button
-          onClick={() => setSettingsOpen(!settingsOpen)}
-          className="ml-auto flex items-center gap-1 p-3 rounded cursor-pointer transition-colors shadow-md shadow-black"
-          style={{ backgroundColor: "transparent", color: colors.navIcon }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = colors.navIconHover)}
-          onMouseLeave={(e) => (e.currentTarget.style.color = colors.navIcon)}
-          aria-label="Toggle View Settings"
-          type="button"
-        >
-          <Settings size={20} />
-          <span className="hidden md:inline select-none">View</span>
-        </button>
-
-        {!sidebarOpen && (
-          <button
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open Sidebar"
-            type="button"
-            className="text-white hover:text-green-400 transition p-2 cursor-pointer duration-300"
-          >
-            <PanelRightClose size={24} />
-          </button>
-        )}
-
-        {settingsOpen && (
-          <div
-            className="absolute top-full right-0 p-3 rounded shadow-xl z-100"
-            style={{
-              backgroundColor: colors.settingsBg,
-              border: `1px solid ${colors.settingsBorder}`,
-              width: 160,
-            }}
-          >
-            <p className="mb-2 font-semibold" style={{ color: colors.settingsOptionActive }}>
-              Days to View
-            </p>
-            {VIEW_OPTIONS.map((d) => (
-              <button
-                key={d}
-                onClick={() => {
-                  setViewType(d);
-                  setStartDay(startOfWeek(new Date(), { weekStartsOn: 1 }));
-                  setSettingsOpen(false);
-                }}
-                className="w-full text-left px-3 py-1 rounded mb-1 text-sm transition-colors"
-                style={{
-                  color: viewType === d ? "#fff" : colors.timeLabel,
-                  backgroundColor: viewType === d ? colors.settingsOptionActive : "transparent",
-                }}
-                onMouseEnter={(e) => {
-                  if (viewType !== d) e.currentTarget.style.backgroundColor = colors.settingsOptionHover;
-                  e.currentTarget.style.color = "#fff";
-                }}
-                onMouseLeave={(e) => {
-                  if (viewType !== d) e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = viewType === d ? "#fff" : colors.timeLabel;
-                }}
-                type="button"
-              >
-                {d} day{d > 1 ? "s" : ""}
-              </button>
-            ))}
-          </div>
-        )}
-      </nav>
-
-      {/* Calendar */}
-      <main className="w-full mx-auto rounded-3xl shadow-xl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-black text-gray-100 overflow-x-hidden">
+      <Header />
+      {/* Main grid */}
+      <main className="mx-auto">
         <div
           ref={calendarRef}
-          className="grid border rounded-xl overflow-y-auto shadow-inner relative calendar-scrollbar"
+          className="grid border rounded-xl overflow-y-auto shadow-inner relative"
           style={{
             gridTemplateColumns: `64px repeat(${viewType}, 1fr)`,
-            height: "calc(100vh - 82px)",
+            height: "calc(100vh - 64px)",
             backgroundColor: colors.background,
             borderColor: colors.border,
-            marginRight: sidebarOpen ? 385 : 0,
+            margin: "0 auto",
+            overflowX: "hidden",
+            // Remove any accidental right margin; force fitscreen
+            boxSizing: "border-box",
           }}
         >
-          {/* Time Column */}
-          <div
-            className="sticky left-0 top-0 z-20 border-r bg-zinc-900"
-            style={{
-              backgroundColor: colors.headerBg,
-              borderColor: colors.border,
-              boxShadow: "2px 0 6px rgba(0,0,0,0.8)",
-              userSelect: "none",
-            }}
-          >
-            <div
-              className="h-16 flex items-center justify-center text-xs font-semibold"
-              style={{ color: colors.timeLabel, borderBottom: `1px solid ${colors.border}` }}
-            >
-              Time
-            </div>
-            {Array.from({ length: HOURS_IN_DAY }).map((_, hour) => (
-              <div
-                key={hour}
-                className="relative border-t flex items-center justify-center"
-                style={{
-                  height: GRID_SLOT_HEIGHT_PX * 4,
-                  borderColor: colors.border,
-                  color: colors.timeLabel,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  userSelect: "none",
-                }}
-                aria-hidden="true"
-              >
-                <span className="absolute -top-1" style={{ color: colors.timeLabel }}>
-                  {format(new Date().setHours(hour, 0, 0, 0), "ha")}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Days Columns */}
-          {daysToShow.map((date, idx) => (
-            <div
-              key={idx}
-              className="calendar-column relative flex flex-col border-r"
-              onMouseLeave={() => setHoverTime(null)}
-              style={{ backgroundColor: colors.background, borderColor: colors.border }}
-            >
-              {/* Header */}
-              <div
-                className="sticky top-0 z-50 border-b flex flex-col items-center justify-center text-center bg-zinc-900"
-                style={{
-                  height: 64,
-                  backgroundColor: colors.headerBg,
-                  borderColor: colors.border,
-                  userSelect: "none",
-                  color: colors.dayLabel,
-                  fontWeight: 600,
-                }}
-              >
-                <span className="uppercase text-xs">{format(date, "EEE")}</span>
-                <span className="mt-1 text-lg font-bold text-white">{format(date, "MMM d")}</span>
-              </div>
-
-              {/* Time Slots */}
-              <div className="relative flex-grow select-none">
-                {Array.from({ length: HOURS_IN_DAY * 4 }).map((_, i) => {
-                  const slotDate = new Date(date);
-                  slotDate.setHours(0, i * GRID_MINUTES_PER_SLOT, 0, 0);
-
-                  const isHovered = hoverTime && isEqual(slotDate, hoverTime);
-
-                  const isSelected = (() => {
-                    if (!isDragging || !dragStartTime || !dragEndTime) return false;
-                    let [start, end] = [dragStartTime, dragEndTime];
-                    if (isAfter(start, end)) [start, end] = [end, start];
-                    return (
-                      !isBefore(slotDate, start) &&
-                      isBefore(slotDate, addMinutes(end, GRID_MINUTES_PER_SLOT))
-                    );
-                  })();
-
-                  return (
-                    <div
-                      key={i}
-                      onMouseDown={(e) => handleMouseDown(e, slotDate)}
-                      onMouseMove={(e) => handleMouseMove(e, date)}
-                      className="border-t cursor-pointer transition-colors"
-                      style={{
-                        height: GRID_SLOT_HEIGHT_PX,
-                        borderColor: colors.border,
-                        backgroundColor: isSelected
-                          ? colors.selectedSlot
-                          : isHovered
-                          ? colors.hoveredSlot
-                          : "transparent",
-                        transition: "background-color 0.15s ease",
-                      }}
-                      aria-label={`Time slot ${format(slotDate, "p")}`}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleMouseDown(e, slotDate);
-                      }}
-                    />
-                  );
-                })}
-
-                {/* Task Blocks */}
-                {tasks
-                  .filter((t) => isEqual(startOfDay(new Date(t.start)), startOfDay(date)))
-                  .map((task) => {
-                    const start = new Date(task.start);
-                    const end = new Date(task.end);
-                    const top =
-                      ((getHours(start) * 60 + getMinutes(start)) / GRID_MINUTES_PER_SLOT) *
-                      GRID_SLOT_HEIGHT_PX;
-                    const height =
-                      ((end - start) / 60000 / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
-
-                    // Live positions/heights for dragging/resizing
-                    let liveTop = top;
-                    let liveHeight = height;
-
-                    if (draggingTask && draggingTask.id === task.id) {
-                      liveTop = top + draggedOffsetSlots * GRID_SLOT_HEIGHT_PX;
-                    }
-                    if (resizingTask && resizingTask.id === task.id) {
-                      liveHeight = Math.max(
-                        height + resizeOffsetSlots * GRID_SLOT_HEIGHT_PX,
-                        GRID_SLOT_HEIGHT_PX
-                      );
-                    }
-
-                    // Thresholds for showing time and description
-                    const timeDisplayThreshold = 40; // only show time if this tall or taller
-                    const descriptionDisplayThreshold = 60; // show description only if this tall or taller
-
-                    const showTime = liveHeight >= timeDisplayThreshold;
-                    const showDescription = liveHeight >= descriptionDisplayThreshold;
-
-                    // Font sizes adjusted based on height (you can tweak these)
-                    let nameFontSize = "0.9rem";
-                    if (liveHeight < 24) nameFontSize = "0.7rem";
-                    else if (liveHeight < 36) nameFontSize = "0.8rem";
-
-                    let timeFontSize = "0.75rem";
-                    if (liveHeight < 48) timeFontSize = "0.6rem";
-
-                    return (
-                      <div
-                        key={task.id}
-                        className="absolute left-1 right-1 z-20 rounded-md text-white p-1 font-semibold shadow-lg cursor-pointer select-text"
-                        style={{
-                          top: liveTop,
-                          height: liveHeight,
-                          background: "#185952",
-                          boxShadow:
-                            "0 2px 6px rgba(0,0,0,0.3), inset 0 0 8px rgba(255,255,255,0.10)",
-                          overflow: "hidden",
-                          userSelect: "text",
-                          touchAction: "none",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: showDescription ? "0.15rem" : "0.1rem",
-                          whiteSpace: "nowrap",
-                        }}
-                        title={`${task.name}: ${format(start, "p")} – ${format(end, "p")}`}
-                        onClick={() => {
-                          if (!dragMovedRef.current) {
-                            setSelectedTask(task);
-                            setSidebarInitialTab("tasks");
-                            setSidebarOpen(true);
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            setSelectedTask(task);
-                            setSidebarOpen(true);
-                          }
-                        }}
-                        onMouseDown={(e) => onTaskMouseDown(e, task)}
-                      >
-                        {/* Task name always shown, truncated if needed */}
-                        <div
-                          className="truncate"
-                          style={{
-                            fontWeight: "bold",
-                            fontSize: nameFontSize,
-                            userSelect: "text",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          {task.name}
-                        </div>
-
-                        {/* Show start-end time - smaller and only if enough space */}
-                        {showTime && (
-                          <div
-                            style={{
-                              fontSize: timeFontSize,
-                              opacity: 0.8,
-                              userSelect: "none",
-                              fontVariantNumeric: "tabular-nums",
-                            }}
-                          >
-                            {format(start, "p")} – {format(end, "p")}
-                          </div>
-                        )}
-
-                        {/* Show description if enough space */}
-                        {showDescription && task.description && (
-                          <div
-                            className="text-[10px] italic truncate"
-                            style={{ color: "rgba(255, 255, 255, 0.75)" }}
-                            title={task.description}
-                          >
-                            {task.description}
-                          </div>
-                        )}
-
-                        {/* Resize Handle */}
-                        <div
-                          onMouseDown={(e) => onResizeHandleMouseDown(e, task)}
-                          style={{
-                            position: "absolute",
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            height: 6,
-                            cursor: "ns-resize",
-                            background: "rgba(255, 255, 255, 0.3)",
-                            borderBottomLeftRadius: 8,
-                            borderBottomRightRadius: 8,
-                            userSelect: "none",
-                          }}
-                          aria-label="Resize task"
-                          role="button"
-                          tabIndex={-1}
-                        />
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
+          <TimeGutter />
+          {daysToShow.map((date) => (
+            <DayColumn key={+date} date={date} />
           ))}
         </div>
       </main>
-
-      {/* Task Details Entry Modal */}
+      {/* Create from drag selection */}
       <Modal
         isOpen={modalOpen}
         onClose={() => {
@@ -774,17 +842,15 @@ export default function CalendarPage() {
         initialStart={roundToNearest15(pendingTaskData?.start)}
         initialEnd={roundToNearest15(pendingTaskData?.end)}
       />
-
+      {/* Quick "New Task" composer */}
       <CreateTaskModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onSubmit={async (data) => {
-          // files not handled in demo; if needed send with FormData
-          await addNewCustomTask(data); // This now calls the dedicated custom task handler
+          await addNewCustomTask(data);
           setCreateModalOpen(false);
         }}
       />
-
       {/* Sidebar */}
       <CalendarSidebar
         isOpen={sidebarOpen}
@@ -800,23 +866,28 @@ export default function CalendarPage() {
             return;
           }
           try {
-            const res = await fetch(`http://127.0.0.1:5000/api/tasks/${updatedTask.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                name: updatedTask.name,
-                description: updatedTask.description,
-                links: updatedTask.links,
-                start: updatedTask.start,
-                end: updatedTask.end,
-              }),
-            });
+            const res = await fetch(
+              `http://127.0.0.1:5000/api/tasks/${updatedTask.id}`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: updatedTask.name,
+                  description: updatedTask.description,
+                  links: updatedTask.links,
+                  start: updatedTask.start,
+                  end: updatedTask.end,
+                }),
+              }
+            );
             if (!res.ok) {
               const errorData = await res.json();
               throw new Error(errorData.error || "Failed to update task");
             }
             const updated = await res.json();
-            setTasks((tasks) => tasks.map((t) => (t.id === updated.id ? updated : t)));
+            setTasks((prev) =>
+              prev.map((t) => (t.id === updated.id ? updated : t))
+            );
             setSelectedTask(updated);
             alert("Task successfully updated!");
           } catch (error) {
@@ -827,6 +898,15 @@ export default function CalendarPage() {
         tasks={tasks}
         initialTab={sidebarInitialTab}
       />
+      {/* Sidebar toggle floater */}
+      <button
+        onClick={() => setSidebarOpen((s) => !s)}
+        className="fixed bottom-4 right-4 rounded-full border border-slate-700 bg-slate-900/90 backdrop-blur px-3 py-2 shadow hover:bg-slate-800"
+        aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+        type="button"
+      >
+        {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelRightClose size={18} />}
+      </button>
     </div>
   );
 }

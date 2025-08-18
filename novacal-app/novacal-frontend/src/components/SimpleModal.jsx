@@ -39,13 +39,13 @@ function Modal({ isOpen, onClose, onSubmit, initialName, initialStart, initialEn
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-neutral-900 rounded-2xl max-h-[85vh] w-full max-w-2xl flex flex-col shadow-2xl text-white border border-white/10"
+        className="bg-black rounded-2xl max-h-[85vh] w-full max-w-2xl flex flex-col shadow-2xl text-white border border-gray-800"
         aria-modal="true"
         role="dialog"
         aria-labelledby="modal-title"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 id="modal-title" className="text-2xl font-semibold text-white tracking-tight">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+          <h2 id="modal-title" className="text-2xl font-semibold text-white">
             Add Task/Event
           </h2>
           <X className="text-gray-400 hover:text-red-400 transition duration-300" onClick={onClose} />

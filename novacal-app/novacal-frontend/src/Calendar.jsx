@@ -402,7 +402,7 @@ export default function CalendarPage() {
       <nav className="flex items-center gap-3 w-full h-[64px] px-4 border-b border-slate-700 bg-gray-950 text-gray-100 sticky top-0 z-50">
         <button
           onClick={goPrev}
-          className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-sky-400"
           aria-label="Previous"
           type="button"
         >
@@ -410,7 +410,7 @@ export default function CalendarPage() {
         </button>
         <button
           onClick={goNext}
-          className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-sky-400"
           aria-label="Next"
           type="button"
         >

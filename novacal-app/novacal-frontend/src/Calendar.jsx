@@ -146,12 +146,14 @@ export default function CalendarPage() {
   const [dragStartY, setDragStartY] = useState(0);
   const [dragOriginalStart, setDragOriginalStart] = useState(null);
   const [dragOriginalEnd, setDragOriginalEnd] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
 
   const [resizingTaskId, setResizingTaskId] = useState(null);
   const [resizeEdge, setResizeEdge] = useState(null); // "top" | "bottom"
   const [resizeStartY, setResizeStartY] = useState(0);
   const [resizeOriginalStart, setResizeOriginalStart] = useState(null);
   const [resizeOriginalEnd, setResizeOriginalEnd] = useState(null);
+  const [resizeActive, setResizeActive] = useState(false);
 
   const dragMovedRef = useRef(false);
 
@@ -318,44 +320,54 @@ export default function CalendarPage() {
     return d;
   };
 
-  // Global pointer handlers for dragging/resizing
   useEffect(() => {
     const onPointerMove = (e) => {
       if (draggingTaskId != null) {
-        dragMovedRef.current = true;
         const deltaY = e.clientY - dragStartY;
-        const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
-        const newStart = addMinutes(dragOriginalStart, slotsToMinutes(slotsMoved));
-        const duration = differenceInMinutes(dragOriginalEnd, dragOriginalStart);
-        let ns = new Date(newStart);
-        let ne = addMinutes(ns, duration);
-        if (!isEqual(startOfDay(ns), startOfDay(dragOriginalStart))) return;
-        const snappedStart = floorTo15(ns);
-        const snappedEnd = floorTo15(ne);
-        updateTaskTimes(draggingTaskId, snappedStart, snappedEnd);
+        if (!dragActive && Math.abs(deltaY) > 6) {
+          setDragActive(true);
+          dragMovedRef.current = true;
+        }
+        if (dragActive) {
+          const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
+          const newStart = addMinutes(dragOriginalStart, slotsToMinutes(slotsMoved));
+          const duration = differenceInMinutes(dragOriginalEnd, dragOriginalStart);
+          let ns = new Date(newStart);
+          let ne = addMinutes(ns, duration);
+          if (!isEqual(startOfDay(ns), startOfDay(dragOriginalStart))) return;
+          const snappedStart = floorTo15(ns);
+          const snappedEnd = floorTo15(ne);
+          updateTaskTimes(draggingTaskId, snappedStart, snappedEnd);
+        }
       }
       if (resizingTaskId != null) {
         const deltaY = e.clientY - resizeStartY;
-        const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
-        let ns = new Date(resizeOriginalStart);
-        let ne = new Date(resizeOriginalEnd);
-        if (resizeEdge === "bottom") {
-          ne = addMinutes(resizeOriginalEnd, slotsToMinutes(slotsMoved));
-          if (!isEqual(startOfDay(ne), startOfDay(resizeOriginalStart))) return;
-          ne = ceilTo15(ne);
-        } else {
-          ns = addMinutes(resizeOriginalStart, slotsToMinutes(slotsMoved));
-          if (!isEqual(startOfDay(ns), startOfDay(resizeOriginalStart))) return;
-          ns = floorTo15(ns);
+        if (!resizeActive && Math.abs(deltaY) > 6) {
+          setResizeActive(true);
         }
-        if (differenceInMinutes(ne, ns) < 15) return;
-        updateTaskTimes(resizingTaskId, ns, ne);
+        if (resizeActive) {
+          let ns = new Date(resizeOriginalStart);
+          let ne = new Date(resizeOriginalEnd);
+          if (resizeEdge === "bottom") {
+            ne = addMinutes(resizeOriginalEnd, slotsToMinutes(Math.round(deltaY / GRID_SLOT_HEIGHT_PX)));
+            if (!isEqual(startOfDay(ne), startOfDay(resizeOriginalStart))) return;
+            ne = ceilTo15(ne);
+          } else {
+            ns = addMinutes(resizeOriginalStart, slotsToMinutes(Math.round(deltaY / GRID_SLOT_HEIGHT_PX)));
+            if (!isEqual(startOfDay(ns), startOfDay(resizeOriginalStart))) return;
+            ns = floorTo15(ns);
+          }
+          if (differenceInMinutes(ne, ns) < 15) return;
+          updateTaskTimes(resizingTaskId, ns, ne);
+        }
       }
     };
     const onPointerUp = () => {
       setDraggingTaskId(null);
+      setDragActive(false);
       setResizingTaskId(null);
       setResizeEdge(null);
+      setResizeActive(false);
     };
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
@@ -369,13 +381,17 @@ export default function CalendarPage() {
     dragStartY,
     dragOriginalStart,
     dragOriginalEnd,
+    dragActive,
+    resizingTaskId,
+    resizeEdge,
     resizeStartY,
     resizeOriginalEnd,
     resizeOriginalStart,
-    resizeEdge,
+    resizeActive,
   ]);
 
   // ===== UI pieces =====
+
   const Header = () => {
     const first = daysToShow[0];
     const last = daysToShow[daysToShow.length - 1];
@@ -386,13 +402,11 @@ export default function CalendarPage() {
 
     const goPrev = () => setStartDay(addDays(startDay, -viewType));
     const goNext = () => setStartDay(addDays(startDay, viewType));
-    // Fix for today: should always set startDay so that today is visible and first column is today if 1-day, else week containing today
     const goToday = () => {
       const today = new Date();
       if (viewType === 1) {
         setStartDay(startOfDay(today));
       } else {
-        // Calculate offset so today is in the center of the view
         const offset = Math.floor(viewType / 3);
         setStartDay(addDays(startOfDay(today), -offset));
       }
@@ -473,7 +487,6 @@ export default function CalendarPage() {
         >
           Time
         </div>
-        {/* Hours */}
         {Array.from({ length: HOURS_IN_DAY }).map((_, hour) => (
           <div
             key={hour}
@@ -491,7 +504,6 @@ export default function CalendarPage() {
             </span>
           </div>
         ))}
-        {/* Now dot in gutter when today visible */}
         {daysToShow.some((d) => isEqual(startOfDay(d), startOfDay(now))) && (
           <div
             className="absolute left-0 right-0 pointer-events-none"
@@ -513,7 +525,6 @@ export default function CalendarPage() {
     const dayKey = +startOfDay(date);
     const dayTasks = tasksByDay.get(dayKey) || [];
 
-    // Convert tasks to Date objects
     const prepared = useMemo(
       () =>
         dayTasks.map((t) => ({
@@ -526,7 +537,6 @@ export default function CalendarPage() {
 
     const layouts = useMemo(() => layoutEventsForDay(prepared), [prepared]);
 
-    // Hover time indicator within this column
     const onMouseMove = (e) => {
       const snapped = getSnappedSlotDate(e.clientY, calendarRef.current, date);
       setHoverTime(snapped);
@@ -545,7 +555,6 @@ export default function CalendarPage() {
 
     const onMouseLeave = () => setHoverTime(null);
 
-    // Compute "now" visuals if today
     const isToday = isEqual(startOfDay(date), startOfDay(now));
     const nowTop = pxFromMinutes(minutesSinceStartOfDay(now));
 
@@ -584,7 +593,6 @@ export default function CalendarPage() {
               style={{ height: GRID_SLOT_HEIGHT_PX, borderColor: colors.border }}
             />
           ))}
-          {/* Past tint for today */}
           {isToday && (
             <div
               className="absolute left-0 right-0 pointer-events-none"
@@ -595,7 +603,6 @@ export default function CalendarPage() {
               }}
             />
           )}
-          {/* Now line across today */}
           {isToday && (
             <div
               className="absolute left-0 right-0 z-30 pointer-events-none"
@@ -604,7 +611,6 @@ export default function CalendarPage() {
               <div className="h-0.5" style={{ background: colors.now }} />
             </div>
           )}
-          {/* Hover slot highlight */}
           {hoverTime && isEqual(startOfDay(hoverTime), startOfDay(date)) && (
             <div
               className="absolute left-0 right-0 z-10"
@@ -616,7 +622,6 @@ export default function CalendarPage() {
               }}
             />
           )}
-          {/* Hover time bubble */}
           {hoverTime && (
             <div
               className="absolute z-40 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 border border-slate-600 shadow"
@@ -628,7 +633,6 @@ export default function CalendarPage() {
               {format(hoverTime, "p")}
             </div>
           )}
-          {/* Selection highlight */}
           {isSelecting &&
             selectStart &&
             selectEnd &&
@@ -653,7 +657,6 @@ export default function CalendarPage() {
                 />
               );
             })()}
-          {/* Task blocks */}
           {prepared.map((task) => {
             const start = task.start;
             const end = task.end;
@@ -666,7 +669,6 @@ export default function CalendarPage() {
             const showDescription = height >= 64;
             const isPastTask = isToday && end <= now;
 
-            // Click sidebar fix: open sidebar with the task only if not resizing/moving
             return (
               <div
                 key={task.id}
@@ -683,10 +685,7 @@ export default function CalendarPage() {
                   gap: 2,
                   userSelect: "none",
                 }}
-                title={`${task.name}: ${format(start, "p")} – ${format(
-                  end,
-                  "p"
-                )}`}
+                title={`${task.name}: ${format(start, "p")} – ${format(end, "p")}`}
                 onMouseDown={(e) => {
                   if (e.button !== 0) return;
                   e.stopPropagation();
@@ -695,15 +694,23 @@ export default function CalendarPage() {
                   setDragStartY(e.clientY);
                   setDragOriginalStart(start);
                   setDragOriginalEnd(end);
+                  setDragActive(false);
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (dragMovedRef.current) return; // ignore if it was actually a drag
+                  // Only open sidebar if no dragging moved
+                  if (!dragMovedRef.current && !dragActive) {
+                    setSelectedTask(task);
+                    setSidebarInitialTab("tasks");
+                    setSidebarOpen(true);
+                  }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
                   setSelectedTask(task);
                   setSidebarInitialTab("tasks");
                   setSidebarOpen(true);
                 }}
-
               >
                 {isPastTask && (
                   <div className="absolute inset-0 bg-black/30 pointer-events-none" />
@@ -721,7 +728,6 @@ export default function CalendarPage() {
                     {task.description}
                   </div>
                 )}
-                {/* Resize handles */}
                 <div
                   className="absolute left-0 right-0 h-1.5 cursor-ns-resize opacity-70"
                   style={{ top: -1, background: "transparent" }}
@@ -731,8 +737,8 @@ export default function CalendarPage() {
                     setResizeStartY(e.clientY);
                     setResizeOriginalStart(start);
                     setResizeOriginalEnd(end);
+                    setResizeActive(false);
                   }}
-                  
                 />
                 <div
                   className="absolute left-0 right-0 h-2 cursor-ns-resize opacity-70"
@@ -744,6 +750,7 @@ export default function CalendarPage() {
                     setResizeStartY(e.clientY);
                     setResizeOriginalStart(start);
                     setResizeOriginalEnd(end);
+                    setResizeActive(false);
                   }}
                 />
               </div>
@@ -754,7 +761,6 @@ export default function CalendarPage() {
     );
   }
 
-  // Finish selection -> create modal
   const finishSelection = useCallback(() => {
     if (!isSelecting || !selectStart || !selectEnd) return;
     let [start, end] = isAfter(selectStart, selectEnd)
@@ -804,7 +810,6 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-black text-gray-100 overflow-x-hidden">
       <Header />
-      {/* Main grid */}
       <main className="mx-auto">
         <div
           ref={calendarRef}
@@ -816,7 +821,6 @@ export default function CalendarPage() {
             borderColor: colors.border,
             margin: "0 auto",
             overflowX: "hidden",
-            // Remove any accidental right margin; force fitscreen
             boxSizing: "border-box",
           }}
         >
@@ -826,7 +830,6 @@ export default function CalendarPage() {
           ))}
         </div>
       </main>
-      {/* Create from drag selection */}
       <Modal
         isOpen={modalOpen}
         onClose={() => {
@@ -838,7 +841,6 @@ export default function CalendarPage() {
         initialStart={roundToNearest15(pendingTaskData?.start)}
         initialEnd={roundToNearest15(pendingTaskData?.end)}
       />
-      {/* Quick "New Task" composer */}
       <CreateTaskModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -847,7 +849,6 @@ export default function CalendarPage() {
           setCreateModalOpen(false);
         }}
       />
-      {/* Sidebar */}
       <CalendarSidebar
         isOpen={sidebarOpen}
         onClose={() => {
@@ -894,7 +895,6 @@ export default function CalendarPage() {
         tasks={tasks}
         initialTab={sidebarInitialTab}
       />
-      {/* Sidebar toggle floater */}
       <button
         onClick={() => setSidebarOpen((s) => !s)}
         className="fixed bottom-4 right-4 rounded-full border border-slate-700 bg-slate-900/90 backdrop-blur px-3 py-2 shadow hover:bg-slate-800"

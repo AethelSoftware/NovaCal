@@ -7,14 +7,12 @@ import os
 import traceback
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
-# ---------- DATABASE ----------
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///users.db")
 engine = create_engine(DATABASE_URL, echo=True)
 metadata = MetaData()
 
-# TASKS table now with due_time and importance for scheduling
 tasks_table = Table(
     "tasks",
     metadata,
@@ -22,15 +20,14 @@ tasks_table = Table(
     Column("title", String(255), nullable=False),
     Column("start_time", DateTime, nullable=False),
     Column("end_time", DateTime, nullable=False),
-    Column("due_time", DateTime, nullable=True),   # NEW - scheduling deadline 
-    Column("importance", Integer, default=2),     # NEW - scheduling priority
+    Column("due_time", DateTime, nullable=True),
+    Column("importance", Integer, default=2),
     Column("description", Text, default=""),
     Column("links", Text, default=""),
     Column("files", Text, default=""),
     Column("parent_custom_task_id", Integer, nullable=True, default=None),
 )
 
-# CUSTOM TASKS (unchanged except for same `importance`)
 custom_tasks_table = Table(
     "custom_tasks",
     metadata,
@@ -47,15 +44,28 @@ custom_tasks_table = Table(
     Column("block_duration_minutes", Integer, default=30),
 )
 
+focus_sessions_table = Table(
+    "focus_sessions",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("task_id", Integer, nullable=True),
+    Column("start_time", DateTime, nullable=False),
+    Column("duration", Integer, nullable=False),
+    Column("task_completed", Boolean, default=False),
+)
+
+completed_tasks_table = Table(
+    "completed_tasks",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("task_id", Integer, nullable=False),
+    Column("completion_date", DateTime, nullable=False),
+)
+
 metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 
-# ---------- HELPERS ----------
 def find_free_slots(existing_tasks, day_start, day_end):
-    """
-    Finds available time slots (as (start, end) tuples) between day_start and day_end
-    given a list of tasks sorted by start_time.
-    """
     slots = []
     prev_end = day_start
     for t in sorted(existing_tasks, key=lambda x: x.start_time):
@@ -66,12 +76,8 @@ def find_free_slots(existing_tasks, day_start, day_end):
         slots.append((prev_end, day_end))
     return slots
 
-# ---------- API: AUTO SCHEDULE ----------
 @app.route('/api/auto_schedule', methods=["POST"])
 def auto_schedule():
-    """
-    Schedules tasks by IDs into the first available free slot before their due_time.
-    """
     session = Session()
     try:
         data = request.json or {}
@@ -79,18 +85,15 @@ def auto_schedule():
         if not task_ids:
             return jsonify({"error": "No task IDs to schedule."}), 400
 
-        # Load target (unscheduled) tasks
         unscheduled = session.execute(
             tasks_table.select().where(tasks_table.c.id.in_(task_ids))
         ).fetchall()
         if not unscheduled:
             return jsonify({"error": "No matching tasks."}), 404
 
-        # Determine time window
         min_start = min(t.start_time for t in unscheduled)
         max_due = max(t.due_time or t.end_time for t in unscheduled)
 
-        # Gather existing scheduled tasks in same window
         scheduled = session.execute(
             tasks_table.select().where(
                 and_(
@@ -101,10 +104,9 @@ def auto_schedule():
             )
         ).fetchall()
 
-        DAY_START = 8  # earliest scheduling hour
-        DAY_END = 22   # latest scheduling hour
+        DAY_START = 8
+        DAY_END = 22
 
-        # Sort unscheduled tasks by due_time, importance DESC, duration DESC
         sorted_tasks = sorted(
             unscheduled,
             key=lambda t: (
@@ -119,21 +121,16 @@ def auto_schedule():
         for task in sorted_tasks:
             task_duration = int((task.end_time - task.start_time).total_seconds() // 60)
             deadline_day = (task.due_time or task.end_time).date()
-
-            # Loop through each day until due date
             day_cursor = datetime.now().date()
             while day_cursor <= deadline_day:
                 day_start_dt = datetime.combine(day_cursor, datetime.min.time()).replace(hour=DAY_START)
                 day_end_dt = datetime.combine(day_cursor, datetime.min.time()).replace(hour=DAY_END)
-
                 day_tasks = [t for t in scheduled if t.start_time.date() == day_cursor]
                 free_slots = find_free_slots(day_tasks, day_start_dt, day_end_dt)
-
                 placed = False
                 for slot_start, slot_end in free_slots:
                     slot_length = int((slot_end - slot_start).total_seconds() // 60)
                     if slot_length >= task_duration:
-                        # Assign slot
                         new_start = slot_start
                         new_end = slot_start + timedelta(minutes=task_duration)
                         session.execute(
@@ -150,12 +147,9 @@ def auto_schedule():
                         break
                 if placed:
                     break
-
                 day_cursor += timedelta(days=1)
-
         session.commit()
         return jsonify({"scheduled": scheduled_updates}), 200
-
     except Exception as e:
         session.rollback()
         traceback.print_exc()
@@ -163,7 +157,6 @@ def auto_schedule():
     finally:
         session.close()
 
-# ---------- API: TASK CRUD ----------
 @app.route("/api/tasks", methods=["GET"])
 def get_tasks():
     session = Session()
@@ -197,10 +190,8 @@ def create_task():
         end_time = datetime.fromisoformat(data["end"])
         due_time = datetime.fromisoformat(data.get("due_time", data["end"]))
         importance = data.get("importance", 2)
-
         if start_time >= end_time:
             return jsonify({"error": "Start time must be before end time"}), 400
-
         stmt = tasks_table.insert().values(
             title=title,
             start_time=start_time,
@@ -241,7 +232,6 @@ def update_task(task_id):
         task = session.execute(tasks_table.select().where(tasks_table.c.id == task_id)).first()
         if not task:
             return jsonify({"error": "Task not found"}), 404
-
         updates = {}
         if "name" in data: updates["title"] = data["name"]
         if "description" in data: updates["description"] = data["description"]
@@ -251,16 +241,12 @@ def update_task(task_id):
         if "end" in data: updates["end_time"] = datetime.fromisoformat(data["end"])
         if "due_time" in data: updates["due_time"] = datetime.fromisoformat(data["due_time"])
         if "importance" in data: updates["importance"] = data["importance"]
-
-        # Validate if both start_time and end_time present
         new_start = updates.get("start_time", task.start_time)
         new_end = updates.get("end_time", task.end_time)
         if new_start >= new_end:
             return jsonify({"error": "Start time must be before end time"}), 400
-
         session.execute(tasks_table.update().where(tasks_table.c.id == task_id).values(**updates))
         session.commit()
-
         updated = session.execute(tasks_table.select().where(tasks_table.c.id == task_id)).first()
         return jsonify({
             "id": updated.id,
@@ -293,7 +279,6 @@ def delete_task(task_id):
     finally:
         session.close()
 
-# ---------- API: CUSTOM TASK ----------
 @app.route("/api/custom_tasks", methods=["POST"])
 def create_custom_task():
     session = Session()
@@ -306,7 +291,6 @@ def create_custom_task():
         importance = data.get("importance", 2)
         split_enabled = data.get("splitEnabled", False)
         block_duration = data.get("blockDuration", 30)
-
         stmt = custom_tasks_table.insert().values(
             name=name,
             description=data.get("description", ""),
@@ -321,7 +305,6 @@ def create_custom_task():
         )
         res = session.execute(stmt)
         ct_id = res.inserted_primary_key[0]
-
         if split_enabled:
             remaining = total_length_minutes
             current_start = overall_start_time
@@ -349,11 +332,141 @@ def create_custom_task():
                 ))
                 remaining -= actual
                 current_start = proposed_end
-
         session.commit()
         return jsonify({"message": "Custom task created", "id": ct_id}), 201
     except Exception as e:
         session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+@app.route("/api/focus_sessions", methods=["POST"])
+def create_focus_session():
+    session = Session()
+    try:
+        data = request.json
+        task_id = data.get("task_id")
+        duration = data["duration"]
+        task_completed = data.get("task_completed", False)
+        start_time = datetime.now()
+        stmt = focus_sessions_table.insert().values(
+            task_id=task_id,
+            start_time=start_time,
+            duration=duration,
+            task_completed=task_completed,
+        )
+        result = session.execute(stmt)
+        new_id = result.inserted_primary_key[0]
+        session.commit()
+        
+        new_session = session.execute(focus_sessions_table.select().where(focus_sessions_table.c.id == new_id)).first()
+        task = session.execute(tasks_table.select().where(tasks_table.c.id == new_session.task_id)).first()
+        
+        if task_completed:
+            session.execute(completed_tasks_table.insert().values(
+                task_id=task_id,
+                completion_date=datetime.now()
+            ))
+            session.commit()
+
+        return jsonify({
+            "id": new_session.id,
+            "task_id": new_session.task_id,
+            "task_name": task.title if task else "Unassigned",
+            "start_time": new_session.start_time.isoformat(),
+            "duration": new_session.duration,
+            "task_completed": new_session.task_completed,
+        }), 201
+    except Exception as e:
+        session.rollback()
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+@app.route("/api/focus_sessions", methods=["GET"])
+def get_focus_sessions():
+    session = Session()
+    try:
+        sessions = session.execute(focus_sessions_table.select()).fetchall()
+        result = []
+        for s in sessions:
+            task = session.execute(tasks_table.select().where(tasks_table.c.id == s.task_id)).first()
+            result.append({
+                "id": s.id,
+                "task_id": s.task_id,
+                "task_name": task.title if task else "Unassigned",
+                "start_time": s.start_time.isoformat(),
+                "duration": s.duration,
+                "task_completed": s.task_completed,
+            })
+        return jsonify(result)
+    finally:
+        session.close()
+
+@app.route("/api/completed_tasks", methods=["POST"])
+def complete_task():
+    session = Session()
+    try:
+        data = request.json
+        task_id = data.get("task_id")
+        if not task_id:
+            return jsonify({"error": "Task ID is required"}), 400
+
+        task = session.execute(tasks_table.select().where(tasks_table.c.id == task_id)).first()
+        if not task:
+            return jsonify({"error": "Task not found"}), 404
+            
+        stmt = completed_tasks_table.insert().values(
+            task_id=task_id,
+            completion_date=datetime.fromisoformat(data.get("completion_date", datetime.now().isoformat()))
+        )
+        result = session.execute(stmt)
+        session.commit()
+        new_id = result.inserted_primary_key[0]
+        
+        return jsonify({
+            "id": new_id,
+            "task_id": task.id,
+            "task_name": task.title,
+            "completion_date": datetime.now().isoformat()
+        }), 201
+    except Exception as e:
+        session.rollback()
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+@app.route("/api/completed_tasks", methods=["GET"])
+def get_completed_tasks():
+    session = Session()
+    try:
+        completed = session.execute(completed_tasks_table.select()).fetchall()
+        result = []
+        for c in completed:
+            task = session.execute(tasks_table.select().where(tasks_table.c.id == c.task_id)).first()
+            if task:
+                result.append({
+                    "id": c.id,
+                    "task_id": c.task_id,
+                    "task_name": task.title,
+                    "completion_date": c.completion_date.isoformat(),
+                })
+        return jsonify(result)
+    finally:
+        session.close()
+
+@app.route("/api/completed_tasks/<int:completed_task_id>", methods=["DELETE"])
+def delete_completed_task(completed_task_id):
+    session = Session()
+    try:
+        session.execute(completed_tasks_table.delete().where(completed_tasks_table.c.id == completed_task_id))
+        session.commit()
+        return jsonify({"message": "Completed task deleted."}), 200
+    except Exception as e:
+        session.rollback()
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()

@@ -10,6 +10,7 @@ import MainLayout from './layouts/MainLayout';
 import CalendarPage from './Calendar';
 import DashboardPage from './Dashboard';
 import HoursPage from "./Hours";
+import AnalyticsPage from './Analytics';
 
 import './index.css'; // Your global styles
 
@@ -32,6 +33,10 @@ const router = createBrowserRouter([
       {
         path: '/hours',
         element: <HoursPage />,
+      },
+      {
+        path: '/analytics',
+        element: <AnalyticsPage />,
       },
     ],
   },

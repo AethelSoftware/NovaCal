@@ -9,6 +9,7 @@ import MainLayout from './layouts/MainLayout';
 // Assuming your main content for the single page is in App.jsx
 import CalendarPage from './Calendar';
 import DashboardPage from './Dashboard';
+import HoursPage from "./Hours";
 
 import './index.css'; // Your global styles
 
@@ -27,6 +28,10 @@ const router = createBrowserRouter([
       {
         path: '/',
         element: <DashboardPage />,
+      },
+      {
+        path: '/hours',
+        element: <HoursPage />,
       },
     ],
   },

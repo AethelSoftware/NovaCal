@@ -83,7 +83,7 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const tasksResponse = await fetch("http://localhost:5000/api/tasks");
+        const tasksResponse = await fetch("http://127.0.0.1:5000/api/tasks");
         if (!tasksResponse.ok) throw new Error(`Tasks HTTP error! status: ${tasksResponse.status}`);
         const tasksData = await tasksResponse.json();
         const todayStart = startOfDay(new Date());
@@ -95,13 +95,13 @@ export default function Dashboard() {
           })
           .sort((a, b) => new Date(a.start) - new Date(b.start));
 
-        const sessionsResponse = await fetch("http://localhost:5000/api/focus_sessions");
+        const sessionsResponse = await fetch("http://127.0.0.1:5000/api/focus_sessions");
         if (!sessionsResponse.ok) throw new Error(`Sessions HTTP error! status: ${sessionsResponse.status}`);
         const sessionsData = await sessionsResponse.json();
         const todaySessions = sessionsData.filter(session => isToday(new Date(session.start_time)));
         setFocusSessions(todaySessions);
 
-        const completedTasksResponse = await fetch("http://localhost:5000/api/completed_tasks");
+        const completedTasksResponse = await fetch("http://127.0.0.1:5000/api/completed_tasks");
         if (!completedTasksResponse.ok) throw new Error(`Completed Tasks HTTP error! status: ${completedTasksResponse.status}`);
         const completedTasksData = await completedTasksResponse.json();
         
@@ -137,7 +137,7 @@ export default function Dashboard() {
     const durationInMinutes = Math.floor((initialTime - timeLeft) / 60);
     if (selectedTask) {
       try {
-        const response = await fetch("http://localhost:5000/api/focus_sessions", {
+        const response = await fetch("http://127.0.0.1:5000/api/focus_sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -171,7 +171,7 @@ export default function Dashboard() {
       const taskToMove = tasks.find(task => task.id === taskId);
       if (taskToMove) {
           try {
-              const response = await fetch("http://localhost:5000/api/completed_tasks", {
+              const response = await fetch("http://127.0.0.1:5000/api/completed_tasks", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -202,13 +202,13 @@ export default function Dashboard() {
     if (taskToMove) {
       setUndoingTask(taskToMove.task_id);
       try {
-        const response = await fetch(`http://localhost:5000/api/completed_tasks/${taskToMove.id}`, {
+        const response = await fetch(`http://127.0.0.1:5000/api/completed_tasks/${taskToMove.id}`, {
           method: "DELETE",
         });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
         // Re-add the task to the main list
-        const originalTaskResponse = await fetch(`http://localhost:5000/api/tasks`);
+        const originalTaskResponse = await fetch(`http://127.0.0.1:5000/api/tasks`);
         if (!originalTaskResponse.ok) throw new Error(`HTTP error! status: ${originalTaskResponse.status}`);
         const allTasks = await originalTaskResponse.json();
         const undoneTask = allTasks.find(t => t.id === taskToMove.task_id);

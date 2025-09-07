@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Clock,
   Target,
@@ -14,39 +14,384 @@ import {
 } from "lucide-react";
 import { format, isToday, startOfDay, endOfDay } from "date-fns";
 
-// Keys for localStorage
-const LOCAL_STORAGE_TIME_KEY = "focusTimerTimeLeft";
-const LOCAL_STORAGE_RUNNING_KEY = "focusTimerIsRunning";
-const LOCAL_STORAGE_TASK_KEY = "focusTimerSelectedTask";
-const INITIAL_TIME = 45 * 60;
+// Local storage keys
+const LS_TIME_KEY = "focusTimerTimeLeft";
+const LS_RUNNING_KEY = "focusTimerIsRunning";
+const LS_TASK_KEY = "focusTimerSelectedTask";
+const LS_END_TS_KEY = "focusTimerEndTimestamp";
+
+const API_BASE = "http://127.0.0.1:5000/api";
+const INITIAL_TIME = 45 * 60; // 45 minutes in seconds
 
 export default function Dashboard() {
-  const [timeLeft, setTimeLeft] = useState(() => {
-    const savedTime = localStorage.getItem(LOCAL_STORAGE_TIME_KEY);
-    return savedTime ? parseInt(savedTime, 10) : INITIAL_TIME;
-  });
+  // Data & UI state
+  const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
+  const [isRunning, setIsRunning] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
 
-  const [isRunning, setIsRunning] = useState(() => {
-    const savedRunning = localStorage.getItem(LOCAL_STORAGE_RUNNING_KEY);
-    return savedRunning === "true";
-  });
-
-  const [selectedTask, setSelectedTask] = useState(() => {
-    const savedTask = localStorage.getItem(LOCAL_STORAGE_TASK_KEY);
-    return savedTask ? JSON.parse(savedTask) : null;
-  });
-
-  const timerRef = useRef(null);
   const [tasks, setTasks] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [focusSessions, setFocusSessions] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [activeTab, setActiveTab] = useState("sessions");
   const [undoingTask, setUndoingTask] = useState(null);
   const [animatingTask, setAnimatingTask] = useState(null);
   const [removingSession, setRemovingSession] = useState(null);
 
+  // Timer refs
+  const timerRef = useRef(null); // holds the interval id
+  const endTsRef = useRef(null); // holds the end timestamp (ms) while running
+
+  // Restore persisted state on mount
+  useEffect(() => {
+    try {
+      const savedTime = localStorage.getItem(LS_TIME_KEY);
+      const savedRunning = localStorage.getItem(LS_RUNNING_KEY);
+      const savedTask = localStorage.getItem(LS_TASK_KEY);
+      const savedEndTs = localStorage.getItem(LS_END_TS_KEY);
+
+      if (savedTask) setSelectedTask(JSON.parse(savedTask));
+      if (savedTime) setTimeLeft(parseInt(savedTime, 10));
+      if (savedRunning === "true" && savedEndTs) {
+        const parsedEnd = parseInt(savedEndTs, 10);
+        // If end timestamp is still in the future, resume with computed timeLeft
+        const remaining = Math.max(0, Math.ceil((parsedEnd - Date.now()) / 1000));
+        if (remaining > 0) {
+          endTsRef.current = parsedEnd;
+          setTimeLeft(remaining);
+          setIsRunning(true);
+        } else {
+          // expired while offline/in background
+          localStorage.removeItem(LS_END_TS_KEY);
+          localStorage.setItem(LS_RUNNING_KEY, "false");
+          setTimeLeft(INITIAL_TIME);
+          setIsRunning(false);
+        }
+      }
+    } catch (e) {
+      console.error("Error restoring timer state:", e);
+    }
+  }, []);
+
+  // Persist timeLeft, isRunning, selectedTask, endTimestamp
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_TIME_KEY, String(timeLeft));
+      localStorage.setItem(LS_RUNNING_KEY, String(isRunning));
+      if (selectedTask) localStorage.setItem(LS_TASK_KEY, JSON.stringify(selectedTask));
+      else localStorage.removeItem(LS_TASK_KEY);
+
+      if (endTsRef.current) localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
+      else localStorage.removeItem(LS_END_TS_KEY);
+    } catch (e) {
+      console.error("Failed to persist timer state:", e);
+    }
+  }, [timeLeft, isRunning, selectedTask]);
+
+  // Robust timer: compute remaining from endTimestamp (Date.now()) each tick.
+  useEffect(() => {
+    // clear any existing interval to avoid duplicates
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (isRunning) {
+      // ensure endTsRef is set (if starting from paused state)
+      if (!endTsRef.current) {
+        endTsRef.current = Date.now() + timeLeft * 1000;
+        localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
+      }
+
+      const tick = () => {
+        const remaining = Math.max(0, Math.ceil((endTsRef.current - Date.now()) / 1000));
+        setTimeLeft(remaining);
+        if (remaining <= 0) {
+          // stop & complete
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          endTsRef.current = null;
+          localStorage.removeItem(LS_END_TS_KEY);
+          setIsRunning(false);
+          // mark session complete (false => not marked completed by user)
+          // call after state updates (no await required here)
+          handleCompleteFocus(false);
+        }
+      };
+
+      // update regularly (500ms gives snappy display without hogging CPU)
+      timerRef.current = setInterval(tick, 500);
+      // run immediate tick to avoid 1st-second lag
+      tick();
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning]); // only re-run when isRunning changes
+
+  // Fetch tasks/sessions/completed tasks (today)
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [tasksRes, sessionsRes, completedRes] = await Promise.all([
+          fetch(`${API_BASE}/tasks`, { signal }),
+          fetch(`${API_BASE}/focus_sessions`, { signal }),
+          fetch(`${API_BASE}/completed_tasks`, { signal }),
+        ]);
+
+        if (!tasksRes.ok) throw new Error(`Tasks HTTP ${tasksRes.status}`);
+        if (!sessionsRes.ok) throw new Error(`Sessions HTTP ${sessionsRes.status}`);
+        if (!completedRes.ok) throw new Error(`Completed Tasks HTTP ${completedRes.status}`);
+
+        const tasksData = await tasksRes.json();
+        const sessionsData = await sessionsRes.json();
+        const completedData = await completedRes.json();
+
+        const todayStart = startOfDay(new Date());
+        const todayEnd = endOfDay(new Date());
+
+        const todayTasks = (tasksData || [])
+          .map(t => ({ ...t }))
+          .filter(task => {
+            const s = new Date(task.start);
+            return s >= todayStart && s <= todayEnd;
+          })
+          .sort((a, b) => new Date(a.start) - new Date(b.start));
+
+        const todaySessions = (sessionsData || []).filter(s => isToday(new Date(s.start_time)));
+        const todayCompleted = (completedData || []).filter(c => isToday(new Date(c.completion_date)));
+
+        // Filter out tasks already completed today
+        const filteredTasks = todayTasks.filter(task => !todayCompleted.some(c => c.task_id === task.id));
+
+        setTasks(filteredTasks);
+        setFocusSessions(todaySessions);
+        setCompletedTasks(todayCompleted);
+
+        // If persisted selectedTask is not in today's tasks, clear it
+        const savedTaskStr = localStorage.getItem(LS_TASK_KEY);
+        if (savedTaskStr) {
+          const parsed = JSON.parse(savedTaskStr);
+          const found = filteredTasks.find(t => t.id === parsed.id);
+          if (!found) {
+            setSelectedTask(null);
+            localStorage.removeItem(LS_TASK_KEY);
+          } else {
+            setSelectedTask(found);
+          }
+        }
+      } catch (e) {
+        if (e.name !== "AbortError") {
+          console.error("Failed to fetch data:", e);
+          setError("Failed to load data.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+    return () => controller.abort();
+  }, []);
+
+  // ---- Actions ----
+  const handleSelectTask = (task) => {
+    setSelectedTask(task);
+    localStorage.setItem(LS_TASK_KEY, JSON.stringify(task));
+  };
+
+  const handleStartFocus = () => {
+    if (!selectedTask) return;
+    // If starting from paused, set endTimestamp based on current timeLeft
+    endTsRef.current = Date.now() + timeLeft * 1000;
+    localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
+    setIsRunning(true);
+  };
+
+  const handlePause = () => {
+    // on pause, compute current timeLeft and clear end timestamp
+    if (endTsRef.current) {
+      const remaining = Math.max(0, Math.ceil((endTsRef.current - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      endTsRef.current = null;
+      localStorage.removeItem(LS_END_TS_KEY);
+    }
+    setIsRunning(false);
+  };
+
+  const handleCompleteFocus = useCallback(
+    async (isTaskCompleted) => {
+      // Stop timer & clear persisted end timestamp right away
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      endTsRef.current = null;
+      localStorage.removeItem(LS_END_TS_KEY);
+      setIsRunning(false);
+
+      const elapsedSeconds = INITIAL_TIME - timeLeft;
+      const durationInMinutes = Math.max(0, Math.floor(elapsedSeconds / 60));
+
+      if (!selectedTask) {
+        setTimeLeft(INITIAL_TIME);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/focus_sessions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            task_id: selectedTask.id,
+            duration: durationInMinutes,
+            task_completed: isTaskCompleted,
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const newSession = await res.json();
+        setFocusSessions(prev => [...prev, newSession]);
+
+        if (isTaskCompleted) {
+          // move to completed
+          handleMoveToCompleted(selectedTask.id);
+        }
+
+        setSelectedTask(null);
+        localStorage.removeItem(LS_TASK_KEY);
+        setTimeLeft(INITIAL_TIME);
+      } catch (e) {
+        console.error("Failed to save focus session:", e);
+        // still reset UI
+        setSelectedTask(null);
+        localStorage.removeItem(LS_TASK_KEY);
+        setTimeLeft(INITIAL_TIME);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [timeLeft, selectedTask]
+  );
+
+  const handleMoveToCompleted = async (taskId) => {
+    setAnimatingTask(taskId);
+    setTimeout(async () => {
+      const taskToMove = tasks.find(t => t.id === taskId);
+      if (!taskToMove) {
+        setAnimatingTask(null);
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/completed_tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ task_id: taskId, completion_date: new Date().toISOString() }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const newCompleted = await res.json();
+        setCompletedTasks(prev => [...prev, newCompleted]);
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+        if (selectedTask?.id === taskId) {
+          setSelectedTask(null);
+          localStorage.removeItem(LS_TASK_KEY);
+        }
+      } catch (e) {
+        console.error("Failed to move task to completed:", e);
+      } finally {
+        setAnimatingTask(null);
+      }
+    }, 500);
+  };
+
+  const handleUndoCompletion = async (completedTaskId) => {
+    const completed = completedTasks.find(c => c.id === completedTaskId);
+    if (!completed) return;
+    setUndoingTask(completed.task_id);
+    try {
+      const res = await fetch(`${API_BASE}/completed_tasks/${completed.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // fetch tasks to restore undone item (could optimize to GET single task endpoint)
+      const allTasksRes = await fetch(`${API_BASE}/tasks`);
+      if (!allTasksRes.ok) throw new Error(`HTTP ${allTasksRes.status}`);
+      const allTasks = await allTasksRes.json();
+      const undone = allTasks.find(t => t.id === completed.task_id);
+      if (undone) {
+        setTasks(prev => [...prev, undone].sort((a, b) => new Date(a.start) - new Date(b.start)));
+        setCompletedTasks(prev => prev.filter(c => c.id !== completedTaskId));
+      }
+    } catch (e) {
+      console.error("Failed to undo completion:", e);
+    } finally {
+      setUndoingTask(null);
+    }
+  };
+
+  const handleRemoveSession = async (sessionId) => {
+    setRemovingSession(sessionId);
+    setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/focus_sessions/${sessionId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setFocusSessions(prev => prev.filter(s => s.id !== sessionId));
+      } catch (e) {
+        console.error("Failed to remove session:", e);
+      } finally {
+        setRemovingSession(null);
+      }
+    }, 300);
+  };
+
+  // ---- Helpers & stats ----
+  const formatTime = (secs) => {
+    const minutes = Math.floor(secs / 60).toString().padStart(2, "0");
+    const seconds = (secs % 60).toString().padStart(2, "0");
+    return `${minutes}:${seconds}`;
+  };
+
+  const circumference = 2 * Math.PI * 54;
+  const progress = ((INITIAL_TIME - timeLeft) / INITIAL_TIME) * circumference;
+  const dashOffset = circumference - progress;
+
+  const totalFocusedMinutesToday = focusSessions.reduce((acc, s) => {
+    const dt = new Date(s.start_time);
+    if (isToday(dt)) return acc + s.duration;
+    return acc;
+  }, 0);
+  const totalHours = Math.floor(totalFocusedMinutesToday / 60);
+  const totalMinutes = totalFocusedMinutesToday % 60;
+  const totalHoursFormatted = `${totalHours}h ${totalMinutes}m`;
+
+  const now = new Date();
+  const weekAgo = new Date(now);
+  weekAgo.setDate(now.getDate() - 6);
+
+  const sessionsThisWeek = focusSessions.filter(s => {
+    const dt = new Date(s.start_time);
+    return dt >= weekAgo && dt <= now;
+  }).length;
+
+  const completedThisWeek = completedTasks.filter(c => {
+    const dt = new Date(c.completion_date);
+    return dt >= weekAgo && dt <= now;
+  }).length;
+
+  const tasksThisWeek = tasks.length + completedThisWeek > 0 ? tasks.length + completedThisWeek : 1;
+  const completionPercent = Math.round((completedThisWeek / tasksThisWeek) * 100);
+
+  // Simple Card component (kept visually similar to original)
   const Card = ({ icon: Icon, title, value, description, color }) => (
     <div className={`flex-1 min-w-0 p-6 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md transition-transform hover:scale-[1.025] group relative overflow-hidden`}>
       <svg
@@ -72,260 +417,7 @@ export default function Dashboard() {
     </div>
   );
 
-  // Timer effect
-  useEffect(() => {
-    if (isRunning) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((t) => {
-          if (t <= 1) {
-            clearInterval(timerRef.current);
-            setIsRunning(false);
-            handleCompleteFocus(false);
-            return 0;
-          }
-          return t - 1;
-        });
-      }, 1000);
-    } else if (!isRunning && timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [isRunning]);
-
-  // Persist timer and task state locally
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_TIME_KEY, timeLeft.toString());
-    localStorage.setItem(LOCAL_STORAGE_RUNNING_KEY, isRunning.toString());
-    if (selectedTask) {
-      localStorage.setItem(LOCAL_STORAGE_TASK_KEY, JSON.stringify(selectedTask));
-    } else {
-      localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
-    }
-  }, [timeLeft, isRunning, selectedTask]);
-
-  // Fetch all required data
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [tasksResponse, sessionsResponse, completedTasksResponse] = await Promise.all([
-          fetch("http://127.0.0.1:5000/api/tasks"),
-          fetch("http://127.0.0.1:5000/api/focus_sessions"),
-          fetch("http://127.0.0.1:5000/api/completed_tasks"),
-        ]);
-
-        if (!tasksResponse.ok) throw new Error(`Tasks HTTP error! status: ${tasksResponse.status}`);
-        if (!sessionsResponse.ok) throw new Error(`Sessions HTTP error! status: ${sessionsResponse.status}`);
-        if (!completedTasksResponse.ok) throw new Error(`Completed Tasks HTTP error! status: ${completedTasksResponse.status}`);
-
-        const tasksData = await tasksResponse.json();
-        const sessionsData = await sessionsResponse.json();
-        const completedTasksData = await completedTasksResponse.json();
-
-        const todayStart = startOfDay(new Date());
-        const todayEnd = endOfDay(new Date());
-
-        const todayTasks = tasksData
-          .filter(task => {
-            const taskStart = new Date(task.start);
-            return taskStart >= todayStart && taskStart <= todayEnd;
-          })
-          .sort((a, b) => new Date(a.start) - new Date(b.start));
-
-        const todaySessions = sessionsData.filter(session => isToday(new Date(session.start_time)));
-
-        const todayCompleted = completedTasksData.filter(task => isToday(new Date(task.completion_date)));
-
-        // Filter out completed from today's tasks
-        const filteredTasks = todayTasks.filter(task => !todayCompleted.some(c => c.task_id === task.id));
-
-        setTasks(filteredTasks);
-        setFocusSessions(todaySessions);
-        setCompletedTasks(todayCompleted);
-
-        // Restore persisted selected task if still in today's tasks
-        const savedTask = localStorage.getItem(LOCAL_STORAGE_TASK_KEY);
-        if (savedTask) {
-          const parsedTask = JSON.parse(savedTask);
-          const foundTask = todayTasks.find(t => t.id === parsedTask.id);
-          if (foundTask) {
-            setSelectedTask(foundTask);
-          } else {
-            setSelectedTask(null);
-            localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch data:", e);
-        setError("Failed to load data.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
-
-  const handleSelectTask = (task) => {
-    setSelectedTask(task);
-    localStorage.setItem(LOCAL_STORAGE_TASK_KEY, JSON.stringify(task));
-  };
-
-  const handleStartFocus = () => {
-    if (selectedTask) {
-      setIsRunning(true);
-    }
-  };
-
-  const handleCompleteFocus = async (isTaskCompleted) => {
-    setIsRunning(false);
-    const durationInMinutes = Math.floor((INITIAL_TIME - timeLeft) / 60);
-    if (selectedTask) {
-      try {
-        const response = await fetch("http://127.0.0.1:5000/api/focus_sessions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            task_id: selectedTask.id,
-            duration: durationInMinutes,
-            task_completed: isTaskCompleted,
-          }),
-        });
-
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const newSession = await response.json();
-        setFocusSessions(prev => [...prev, newSession]);
-
-        if (isTaskCompleted) {
-          handleMoveToCompleted(selectedTask.id);
-        }
-
-        setSelectedTask(null);
-        localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
-        setTimeLeft(INITIAL_TIME);
-      } catch (e) {
-        console.error("Failed to save focus session:", e);
-      }
-    } else {
-      setTimeLeft(INITIAL_TIME);
-    }
-  };
-
-  const handleMoveToCompleted = async (taskId) => {
-    setAnimatingTask(taskId);
-    setTimeout(async () => {
-      const taskToMove = tasks.find(t => t.id === taskId);
-      if (taskToMove) {
-        try {
-          const response = await fetch("http://127.0.0.1:5000/api/completed_tasks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              task_id: taskId,
-              completion_date: new Date().toISOString(),
-            }),
-          });
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const newCompletedTask = await response.json();
-
-          setCompletedTasks(prev => [...prev, newCompletedTask]);
-          setTasks(prev => prev.filter(t => t.id !== taskId));
-
-          if (selectedTask?.id === taskId) {
-            setSelectedTask(null);
-            localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
-          }
-        } catch (e) {
-          console.error("Failed to move task:", e);
-        } finally {
-          setAnimatingTask(null);
-        }
-      }
-    }, 500);
-  };
-
-  const handleUndoCompletion = async (completedTaskId) => {
-    const taskToMove = completedTasks.find(t => t.id === completedTaskId);
-    if (taskToMove) {
-      setUndoingTask(taskToMove.task_id);
-      try {
-        const response = await fetch(`http://127.0.0.1:5000/api/completed_tasks/${taskToMove.id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-        // Refetch all tasks to restore undone task
-        const originalTaskResponse = await fetch("http://127.0.0.1:5000/api/tasks");
-        if (!originalTaskResponse.ok) throw new Error(`HTTP error! status: ${originalTaskResponse.status}`);
-        const allTasks = await originalTaskResponse.json();
-        const undoneTask = allTasks.find(t => t.id === taskToMove.task_id);
-
-        setTasks(prev => [...prev, undoneTask].sort((a, b) => new Date(a.start) - new Date(b.start)));
-        setCompletedTasks(prev => prev.filter(c => c.id !== completedTaskId));
-      } catch (e) {
-        console.error("Failed to undo completion:", e);
-      } finally {
-        setUndoingTask(null);
-      }
-    }
-  };
-
-  const handleRemoveSession = async (sessionId) => {
-    setRemovingSession(sessionId);
-    setTimeout(async () => {
-      try {
-        const response = await fetch(`http://127.0.0.1:5000/api/focus_sessions/${sessionId}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-        setFocusSessions(prev => prev.filter(s => s.id !== sessionId));
-      } catch (e) {
-        console.error("Failed to remove session:", e);
-      } finally {
-        setRemovingSession(null);
-      }
-    }, 300);
-  };
-
-  const formatTime = (secs) => {
-    const minutes = Math.floor(secs / 60).toString().padStart(2, "0");
-    const seconds = (secs % 60).toString().padStart(2, "0");
-    return `${minutes}:${seconds}`;
-  };
-
-  const circumference = 2 * Math.PI * 54;
-  const progress = ((INITIAL_TIME - timeLeft) / INITIAL_TIME) * circumference;
-  const dashOffset = circumference - progress;
-
-  // Calculate stats for cards
-  // Total focused time today in hours and minutes
-  const totalFocusedMinutesToday = focusSessions.reduce((acc, s) => {
-    const dt = new Date(s.start_time);
-    if (isToday(dt)) return acc + s.duration;
-    return acc;
-  }, 0);
-  const totalHours = Math.floor(totalFocusedMinutesToday / 60);
-  const totalMinutes = totalFocusedMinutesToday % 60;
-  const totalHoursFormatted = `${totalHours}h ${totalMinutes}m`;
-
-  // Total focus sessions this week (past 7 days)
-  const now = new Date();
-  const weekAgo = new Date(now);
-  weekAgo.setDate(now.getDate() - 6);
-  const sessionsThisWeek = focusSessions.filter(s => {
-    const dt = new Date(s.start_time);
-    return dt >= weekAgo && dt <= now;
-  }).length;
-
-  // Percentage of tasks completed this week
-  // We consider today and past 6 days for week range
-  const completedThisWeek = completedTasks.filter(c => {
-    const dt = new Date(c.completion_date);
-    return dt >= weekAgo && dt <= now;
-  }).length;
-
-  const tasksThisWeek = tasks.length + completedThisWeek > 0 ? tasks.length + completedThisWeek : 1; // avoid zero div
-  const completionPercent = Math.round((completedThisWeek / tasksThisWeek) * 100);
-
+  // ---- UI render ----
   return (
     <div className="min-h-screen dashboard-background p-6">
       <div className="max-w-7xl mx-auto backdrop-blur-sm rounded-lg shadow-lg border-2 border-white/20 p-6 h-full bg-transparent">
@@ -450,7 +542,13 @@ export default function Dashboard() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-extrabold text-stone-900 dark:text-white">{formatTime(timeLeft)}</span>
+                <span
+                  className="text-3xl font-extrabold text-stone-900 dark:text-white"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {formatTime(timeLeft)}
+                </span>
               </div>
             </div>
             <div className="mb-3 text-center">
@@ -469,7 +567,7 @@ export default function Dashboard() {
                 </button>
               ) : isRunning ? (
                 <button
-                  onClick={() => setIsRunning(false)}
+                  onClick={handlePause}
                   className="bg-yellow-500 hover:bg-yellow-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
                   aria-label="Pause timer"
                 >
@@ -478,7 +576,12 @@ export default function Dashboard() {
               ) : (
                 <>
                   <button
-                    onClick={handleStartFocus}
+                    onClick={() => {
+                      // resume by setting endTsRef and setting isRunning true
+                      endTsRef.current = Date.now() + timeLeft * 1000;
+                      localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
+                      setIsRunning(true);
+                    }}
                     className="bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
                     aria-label="Resume timer"
                   >
@@ -626,3 +729,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

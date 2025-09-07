@@ -31,9 +31,10 @@ import {
 import CreateTaskModal from "./components/CustomTaskModal";
 import Modal from "./components/SimpleModal";
 import CalendarSidebar from "./components/CalendarSidebar";
+import Header from "./components/CalendarHeader";
 
 // ===== Constants =====
-const GRID_SLOT_HEIGHT_PX = 16; // 1 slot = 15 minutes
+const GRID_SLOT_HEIGHT_PX = 16;
 const GRID_MINUTES_PER_SLOT = 15;
 const SLOTS_PER_HOUR = 60 / GRID_MINUTES_PER_SLOT; // 4
 const HOURS_IN_DAY = 24;
@@ -390,86 +391,6 @@ export default function CalendarPage() {
     resizeActive,
   ]);
 
-  // ===== UI pieces =====
-
-  const Header = () => {
-    const first = daysToShow[0];
-    const last = daysToShow[daysToShow.length - 1];
-    const sameMonth = format(first, "MMM") === format(last, "MMM");
-    const rangeLabel = sameMonth
-      ? `${format(first, "MMM d")} – ${format(last, "d, yyyy")}`
-      : `${format(first, "MMM d")} – ${format(last, "MMM d, yyyy")}`;
-
-    const goPrev = () => setStartDay(addDays(startDay, -viewType));
-    const goNext = () => setStartDay(addDays(startDay, viewType));
-    const goToday = () => {
-      const today = new Date();
-      if (viewType === 1) {
-        setStartDay(startOfDay(today));
-      } else {
-        const offset = Math.floor(viewType / 3);
-        setStartDay(addDays(startOfDay(today), -offset));
-      }
-    };
-
-    return (
-      <nav className="flex items-center gap-3 w-full h-[64px] px-4 border-b border-slate-700 bg-gray-950 text-gray-100 sticky top-0 z-50">
-        <button
-          onClick={goPrev}
-          className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-sky-400"
-          aria-label="Previous"
-          type="button"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <button
-          onClick={goNext}
-          className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-sky-400"
-          aria-label="Next"
-          type="button"
-        >
-          <ChevronRight size={20} />
-        </button>
-        <button
-          onClick={goToday}
-          className="px-3 py-1.5 rounded-md border border-slate-600 hover:bg-white/5 text-sm"
-          type="button"
-        >
-          Today
-        </button>
-        <div className="ml-2 text-sm sm:text-base font-semibold tracking-wide text-slate-200">
-          {rangeLabel}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="inline-flex rounded-lg bg-slate-800/80 border border-slate-700 overflow-hidden text-xs">
-            {VIEW_OPTIONS.map((d) => (
-              <button
-                key={d}
-                onClick={() => setViewType(d)}
-                className={`${
-                  viewType === d
-                    ? "bg-sky-600/70 text-white"
-                    : "hover:bg-white/5 text-slate-300"
-                } px-3 py-1.5 transition-colors`}
-                type="button"
-                aria-pressed={viewType === d}
-              >
-                {d} day{d > 1 ? "s" : ""}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            className="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-teal-700 hover:bg-teal-800 text-white text-sm shadow duration-200 cursor-pointer"
-            type="button"
-          >
-            <Plus size={16} /> New Task
-          </button>
-        </div>
-      </nav>
-    );
-  };
-
   const TimeGutter = () => {
     const minutes = minutesSinceStartOfDay(now);
     const nowTop = pxFromMinutes(minutes);
@@ -809,7 +730,13 @@ export default function CalendarPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-black text-gray-100 overflow-x-hidden">
-      <Header />
+      <Header
+        viewType={viewType}
+        setViewType={setViewType}
+        startDay={startDay}
+        setStartDay={setStartDay}
+        openCreateModal={() => setCreateModalOpen(true)}
+      />
       <main className="mx-auto">
         <div
           ref={calendarRef}

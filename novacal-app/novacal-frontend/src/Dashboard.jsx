@@ -3,12 +3,10 @@ import {
   Clock,
   Target,
   TrendingUp,
-  Calendar,
   Play,
   CheckCircle2,
   AlertCircle,
   Timer,
-  Plus,
   Square,
   TrendingDown,
   Circle,
@@ -23,7 +21,6 @@ const LOCAL_STORAGE_TASK_KEY = "focusTimerSelectedTask";
 const INITIAL_TIME = 45 * 60;
 
 export default function Dashboard() {
-  // Initialize state from localStorage, falling back to defaults if not found
   const [timeLeft, setTimeLeft] = useState(() => {
     const savedTime = localStorage.getItem(LOCAL_STORAGE_TIME_KEY);
     return savedTime ? parseInt(savedTime, 10) : INITIAL_TIME;
@@ -31,7 +28,7 @@ export default function Dashboard() {
 
   const [isRunning, setIsRunning] = useState(() => {
     const savedRunning = localStorage.getItem(LOCAL_STORAGE_RUNNING_KEY);
-    return savedRunning === "true"; // localStorage stores strings
+    return savedRunning === "true";
   });
 
   const [selectedTask, setSelectedTask] = useState(() => {
@@ -42,27 +39,23 @@ export default function Dashboard() {
   const timerRef = useRef(null);
   const [tasks, setTasks] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
+  const [focusSessions, setFocusSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [focusSessions, setFocusSessions] = useState([]);
   const [activeTab, setActiveTab] = useState("sessions");
   const [undoingTask, setUndoingTask] = useState(null);
   const [animatingTask, setAnimatingTask] = useState(null);
   const [removingSession, setRemovingSession] = useState(null);
 
   const Card = ({ icon: Icon, title, value, description, color }) => (
-    <div className="flex-1 min-w-0 p-6 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md transition-transform hover:scale-[1.025] group relative overflow-hidden">
+    <div className={`flex-1 min-w-0 p-6 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md transition-transform hover:scale-[1.025] group relative overflow-hidden`}>
       <svg
         className={`absolute -top-5 -left-5 w-32 h-32 z-0 ${color} opacity-20 pointer-events-none select-none`}
         viewBox="0 0 100 100"
         fill="none"
       >
-        <path
-          d="M0 0 H100 A100 100 0 0 1 0 100 V0 Z"
-          fill="currentColor"
-        />
+        <path d="M0 0 H100 A100 100 0 0 1 0 100 V0 Z" fill="currentColor" />
       </svg>
-
       <div className="flex items-center justify-between mb-4 relative z-10">
         <div className="flex items-center">
           <span className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${color} bg-white/20 shadow-inner mr-3`}>
@@ -71,7 +64,6 @@ export default function Dashboard() {
         </div>
         <TrendingUp className="w-5 h-5 text-green-400/80" aria-hidden />
       </div>
-
       <div className="relative z-10">
         <h3 className="text-base text-stone-200 font-semibold mb-1 tracking-tight">{title}</h3>
         <p className="text-4xl font-extrabold text-white mb-1">{value}</p>
@@ -80,7 +72,7 @@ export default function Dashboard() {
     </div>
   );
 
-  // Effect to handle the timer
+  // Timer effect
   useEffect(() => {
     if (isRunning) {
       timerRef.current = setInterval(() => {
@@ -100,7 +92,7 @@ export default function Dashboard() {
     return () => clearInterval(timerRef.current);
   }, [isRunning]);
 
-  // Effect to persist state to localStorage
+  // Persist timer and task state locally
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_TIME_KEY, timeLeft.toString());
     localStorage.setItem(LOCAL_STORAGE_RUNNING_KEY, isRunning.toString());
@@ -111,14 +103,27 @@ export default function Dashboard() {
     }
   }, [timeLeft, isRunning, selectedTask]);
 
+  // Fetch all required data
   useEffect(() => {
     async function fetchData() {
       try {
-        const tasksResponse = await fetch("http://127.0.0.1:5000/api/tasks");
+        const [tasksResponse, sessionsResponse, completedTasksResponse] = await Promise.all([
+          fetch("http://127.0.0.1:5000/api/tasks"),
+          fetch("http://127.0.0.1:5000/api/focus_sessions"),
+          fetch("http://127.0.0.1:5000/api/completed_tasks"),
+        ]);
+
         if (!tasksResponse.ok) throw new Error(`Tasks HTTP error! status: ${tasksResponse.status}`);
+        if (!sessionsResponse.ok) throw new Error(`Sessions HTTP error! status: ${sessionsResponse.status}`);
+        if (!completedTasksResponse.ok) throw new Error(`Completed Tasks HTTP error! status: ${completedTasksResponse.status}`);
+
         const tasksData = await tasksResponse.json();
+        const sessionsData = await sessionsResponse.json();
+        const completedTasksData = await completedTasksResponse.json();
+
         const todayStart = startOfDay(new Date());
         const todayEnd = endOfDay(new Date());
+
         const todayTasks = tasksData
           .filter(task => {
             const taskStart = new Date(task.start);
@@ -126,24 +131,18 @@ export default function Dashboard() {
           })
           .sort((a, b) => new Date(a.start) - new Date(b.start));
 
-        const sessionsResponse = await fetch("http://127.0.0.1:5000/api/focus_sessions");
-        if (!sessionsResponse.ok) throw new Error(`Sessions HTTP error! status: ${sessionsResponse.status}`);
-        const sessionsData = await sessionsResponse.json();
         const todaySessions = sessionsData.filter(session => isToday(new Date(session.start_time)));
-        setFocusSessions(todaySessions);
 
-        const completedTasksResponse = await fetch("http://127.0.0.1:5000/api/completed_tasks");
-        if (!completedTasksResponse.ok) throw new Error(`Completed Tasks HTTP error! status: ${completedTasksResponse.status}`);
-        const completedTasksData = await completedTasksResponse.json();
-        
         const todayCompleted = completedTasksData.filter(task => isToday(new Date(task.completion_date)));
+
+        // Filter out completed from today's tasks
+        const filteredTasks = todayTasks.filter(task => !todayCompleted.some(c => c.task_id === task.id));
+
+        setTasks(filteredTasks);
+        setFocusSessions(todaySessions);
         setCompletedTasks(todayCompleted);
 
-        // Filter out tasks that are already in the completed list
-        const filteredTasks = todayTasks.filter(task => !todayCompleted.some(completedTask => completedTask.task_id === task.id));
-        setTasks(filteredTasks);
-
-        // If a task was selected and persisted, find the full task object
+        // Restore persisted selected task if still in today's tasks
         const savedTask = localStorage.getItem(LOCAL_STORAGE_TASK_KEY);
         if (savedTask) {
           const parsedTask = JSON.parse(savedTask);
@@ -151,7 +150,6 @@ export default function Dashboard() {
           if (foundTask) {
             setSelectedTask(foundTask);
           } else {
-            // If the persisted task is not in today's list, clear it
             setSelectedTask(null);
             localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
           }
@@ -194,8 +192,8 @@ export default function Dashboard() {
 
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const newSession = await response.json();
-        setFocusSessions(prevSessions => [...prevSessions, newSession]);
-        
+        setFocusSessions(prev => [...prev, newSession]);
+
         if (isTaskCompleted) {
           handleMoveToCompleted(selectedTask.id);
         }
@@ -214,38 +212,38 @@ export default function Dashboard() {
   const handleMoveToCompleted = async (taskId) => {
     setAnimatingTask(taskId);
     setTimeout(async () => {
-      const taskToMove = tasks.find(task => task.id === taskId);
+      const taskToMove = tasks.find(t => t.id === taskId);
       if (taskToMove) {
-          try {
-              const response = await fetch("http://127.0.0.1:5000/api/completed_tasks", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                      task_id: taskId,
-                      completion_date: new Date().toISOString()
-                  })
-              });
-              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-              const newCompletedTask = await response.json();
-              
-              setCompletedTasks(prevCompleted => [...prevCompleted, newCompletedTask]);
-              setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
-              
-              if (selectedTask?.id === taskId) {
-                  setSelectedTask(null);
-                  localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
-              }
-          } catch (e) {
-              console.error("Failed to move task:", e);
-          } finally {
-              setAnimatingTask(null);
+        try {
+          const response = await fetch("http://127.0.0.1:5000/api/completed_tasks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              task_id: taskId,
+              completion_date: new Date().toISOString(),
+            }),
+          });
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const newCompletedTask = await response.json();
+
+          setCompletedTasks(prev => [...prev, newCompletedTask]);
+          setTasks(prev => prev.filter(t => t.id !== taskId));
+
+          if (selectedTask?.id === taskId) {
+            setSelectedTask(null);
+            localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
           }
+        } catch (e) {
+          console.error("Failed to move task:", e);
+        } finally {
+          setAnimatingTask(null);
+        }
       }
     }, 500);
   };
 
   const handleUndoCompletion = async (completedTaskId) => {
-    const taskToMove = completedTasks.find(task => task.id === completedTaskId);
+    const taskToMove = completedTasks.find(t => t.id === completedTaskId);
     if (taskToMove) {
       setUndoingTask(taskToMove.task_id);
       try {
@@ -253,16 +251,15 @@ export default function Dashboard() {
           method: "DELETE",
         });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        // Re-add the task to the main list
-        const originalTaskResponse = await fetch(`http://127.0.0.1:5000/api/tasks`);
+
+        // Refetch all tasks to restore undone task
+        const originalTaskResponse = await fetch("http://127.0.0.1:5000/api/tasks");
         if (!originalTaskResponse.ok) throw new Error(`HTTP error! status: ${originalTaskResponse.status}`);
         const allTasks = await originalTaskResponse.json();
         const undoneTask = allTasks.find(t => t.id === taskToMove.task_id);
 
-        setTasks(prevTasks => [...prevTasks, undoneTask].sort((a,b) => new Date(a.start) - new Date(b.start)));
-        setCompletedTasks(prevCompleted => prevCompleted.filter(task => task.id !== completedTaskId));
-
+        setTasks(prev => [...prev, undoneTask].sort((a, b) => new Date(a.start) - new Date(b.start)));
+        setCompletedTasks(prev => prev.filter(c => c.id !== completedTaskId));
       } catch (e) {
         console.error("Failed to undo completion:", e);
       } finally {
@@ -279,8 +276,8 @@ export default function Dashboard() {
           method: "DELETE",
         });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        setFocusSessions(prevSessions => prevSessions.filter(session => session.id !== sessionId));
+
+        setFocusSessions(prev => prev.filter(s => s.id !== sessionId));
       } catch (e) {
         console.error("Failed to remove session:", e);
       } finally {
@@ -299,6 +296,36 @@ export default function Dashboard() {
   const progress = ((INITIAL_TIME - timeLeft) / INITIAL_TIME) * circumference;
   const dashOffset = circumference - progress;
 
+  // Calculate stats for cards
+  // Total focused time today in hours and minutes
+  const totalFocusedMinutesToday = focusSessions.reduce((acc, s) => {
+    const dt = new Date(s.start_time);
+    if (isToday(dt)) return acc + s.duration;
+    return acc;
+  }, 0);
+  const totalHours = Math.floor(totalFocusedMinutesToday / 60);
+  const totalMinutes = totalFocusedMinutesToday % 60;
+  const totalHoursFormatted = `${totalHours}h ${totalMinutes}m`;
+
+  // Total focus sessions this week (past 7 days)
+  const now = new Date();
+  const weekAgo = new Date(now);
+  weekAgo.setDate(now.getDate() - 6);
+  const sessionsThisWeek = focusSessions.filter(s => {
+    const dt = new Date(s.start_time);
+    return dt >= weekAgo && dt <= now;
+  }).length;
+
+  // Percentage of tasks completed this week
+  // We consider today and past 6 days for week range
+  const completedThisWeek = completedTasks.filter(c => {
+    const dt = new Date(c.completion_date);
+    return dt >= weekAgo && dt <= now;
+  }).length;
+
+  const tasksThisWeek = tasks.length + completedThisWeek > 0 ? tasks.length + completedThisWeek : 1; // avoid zero div
+  const completionPercent = Math.round((completedThisWeek / tasksThisWeek) * 100);
+
   return (
     <div className="min-h-screen dashboard-background p-6">
       <div className="max-w-7xl mx-auto backdrop-blur-sm rounded-lg shadow-lg border-2 border-white/20 p-6 h-full bg-transparent">
@@ -308,45 +335,31 @@ export default function Dashboard() {
               <h1 className="text-3xl md:text-4xl font-bold text-white">
                 Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}
               </h1>
-              <p className="text-stone-400 mt-2 text-lg">
-                {format(new Date(), "EEEE, MMMM d, yyyy")}
-              </p>
+              <p className="text-stone-400 mt-2 text-lg">{format(new Date(), "EEEE, MMMM d, yyyy")}</p>
             </div>
             <div className="flex gap-3">
               <button className="flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white transition-all duration-200 border-2 border-stone-600 hover:bg-white/10 hover:border-white/30 shadow-md">
                 <Target className="w-4 h-4 mr-2" />
                 Prioritize
               </button>
-              <button className="flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white transition duration-200 shadow-md bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700" onClick={handleStartFocus} disabled={!selectedTask}>
+              <button
+                className="flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white transition duration-200 shadow-md bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
+                onClick={handleStartFocus}
+                disabled={!selectedTask}
+              >
                 <Timer className="w-4 h-4 mr-2" />
                 Start Focus
               </button>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-              <Card
-                icon={Clock}
-                title="Total Hours"
-                value="12h 45m"
-                description="Since last week"
-                color="text-sky-400"
-              />
-              <Card
-                icon={Target}
-                title="Focus Sessions"
-                value="24"
-                description="This week"
-                color="text-purple-400"
-              />
-              <Card
-                icon={CheckCircle2}
-                title="Tasks Completed"
-                value="89%"
-                description="This week"
-                color="text-emerald-400"
-              />
-            </div>
+            <Card icon={Clock} title="Total Focused Time" value={totalHoursFormatted} description="Today" color="text-sky-400" />
+            <Card icon={Target} title="Focus Sessions" value={sessionsThisWeek} description="This week" color="text-purple-400" />
+            <Card icon={CheckCircle2} title="Tasks Completed" value={`${completionPercent}%`} description="This week" color="text-emerald-400" />
+          </div>
         </div>
+
+        {/* Tasks & Timer Section */}
         <div className="grid lg:grid-cols-3 gap-8 mb-8">
           <div className="lg:col-span-2 space-y-8">
             <div className="flex-1 min-w-0 p-8 rounded-2xl shadow-lg backdrop-blur-md transition-transform group relative overflow-hidden bg-white/10 h-[450px]">
@@ -358,13 +371,9 @@ export default function Dashboard() {
               </div>
 
               {loading ? (
-                <div className="flex justify-center items-center h-40 text-stone-400">
-                  Loading tasks...
-                </div>
+                <div className="flex justify-center items-center h-40 text-stone-400">Loading tasks...</div>
               ) : error ? (
-                <div className="flex justify-center items-center h-40 text-red-400">
-                  {error}
-                </div>
+                <div className="flex justify-center items-center h-40 text-red-400">{error}</div>
               ) : tasks.length > 0 ? (
                 <div className="h-[calc(450px-8rem)] overflow-y-auto pr-2 custom-scrollbar">
                   <ul className="space-y-2">
@@ -372,8 +381,8 @@ export default function Dashboard() {
                       <li
                         key={task.id}
                         className={`flex items-center justify-between p-2 rounded-lg transition-all duration-300 cursor-pointer text-sm border-2
-                        ${selectedTask?.id === task.id ? "bg-emerald-500/20 border-emerald-500/50" : "bg-transparent border-white/20 hover:bg-white/10"}
-                        ${animatingTask === task.id ? "opacity-0 transform -translate-x-10 scale-95" : "opacity-100"}`}
+                          ${selectedTask?.id === task.id ? "bg-emerald-500/20 border-emerald-500/50" : "bg-transparent border-white/20 hover:bg-white/10"}
+                          ${animatingTask === task.id ? "opacity-0 transform -translate-x-10 scale-95" : "opacity-100"}`}
                         onClick={() => handleSelectTask(task)}
                       >
                         <div className="flex-1 min-w-0 pr-4">
@@ -382,17 +391,18 @@ export default function Dashboard() {
                             {format(new Date(task.start), "p")} - {format(new Date(task.end), "p")}
                           </p>
                         </div>
-                        <button 
+                        <button
                           onClick={(e) => {
-                              e.stopPropagation();
-                              handleMoveToCompleted(task.id);
+                            e.stopPropagation();
+                            handleMoveToCompleted(task.id);
                           }}
                           className="flex-shrink-0 p-2 text-white transition-transform duration-300"
                         >
-                          {animatingTask === task.id ? 
-                            <CheckCircle2 className="w-5 h-5 text-emerald-400 animate-pulse" /> : 
+                          {animatingTask === task.id ? (
+                            <CheckCircle2 className="w-5 h-5 text-emerald-400 animate-pulse" />
+                          ) : (
                             <Circle className="w-5 h-5 text-stone-400" />
-                          }
+                          )}
                         </button>
                       </li>
                     ))}
@@ -406,37 +416,25 @@ export default function Dashboard() {
                     <span className="block w-20 h-20 border-4 border-stone-200 dark:border-stone-600 rounded-full bg-white/15 backdrop-blur-md" />
                     <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-gradient-to-br from-emerald-300 via-white to-sky-300 rounded-full opacity-40 blur-[2px]" />
                   </div>
-                  <p className="text-lg font-medium text-stone-300 mb-4">
-                    No tasks scheduled for today
-                  </p>
+                  <p className="text-lg font-medium text-stone-300 mb-4">No tasks scheduled for today</p>
                   <a href="/calendar">
-                    <button className="mt-1 px-6 py-2 rounded-lg border border-stone-300 dark:border-stone-600 bg-white/90 dark:bg-stone-900/30 shadow-sm text-stone-900 dark:text-white font-semibold text-base transition hover:bg-white hover:dark:bg-stone-900/50">
-                      Plan Your Day
-                    </button>
+                    <button className="mt-1 px-6 py-2 rounded-lg border border-stone-300 dark:border-stone-600 bg-white/90 dark:bg-stone-900/30 shadow-sm text-stone-900 dark:text-white font-semibold text-base transition hover:bg-white hover:dark:bg-stone-900/50">Plan Your Day</button>
                   </a>
                 </div>
               )}
             </div>
           </div>
 
+          {/* Focus Timer Section */}
           <div className="flex flex-col items-center p-8 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md">
             <div className="flex items-center w-full mb-6">
               <Timer className="w-6 h-6 mr-3 text-stone-700 dark:text-white" />
-              <h2 className="text-2xl font-semibold text-stone-900 dark:text-white">
-                Focus Session
-              </h2>
+              <h2 className="text-2xl font-semibold text-stone-900 dark:text-white">Focus Session</h2>
             </div>
             <div className="relative w-40 h-40 flex items-center justify-center mx-auto mb-6">
               <svg className="w-full h-full" viewBox="0 0 120 120">
                 {/* Background ring */}
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="54"
-                  fill="none"
-                  stroke="#e5e7eb"
-                  strokeWidth="10"
-                />
+                <circle cx="60" cy="60" r="54" fill="none" stroke="#e5e7eb" strokeWidth="10" />
                 {/* Progress ring */}
                 <circle
                   cx="60"
@@ -456,12 +454,8 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="mb-3 text-center">
-              <div className="text-lg font-semibold text-stone-700 dark:text-white">
-                {selectedTask ? selectedTask.name : "Focus Time"}
-              </div>
-              <div className="text-sm text-stone-500 dark:text-stone-300">
-                {selectedTask ? "45 minutes of deep work" : "Select a task to begin"}
-              </div>
+              <div className="text-lg font-semibold text-stone-700 dark:text-white">{selectedTask ? selectedTask.name : "Focus Time"}</div>
+              <div className="text-sm text-stone-500 dark:text-stone-300">{selectedTask ? "45 minutes of deep work" : "Select a task to begin"}</div>
             </div>
             <div className="flex justify-center gap-4 mt-2 mb-3">
               {!isRunning && timeLeft === INITIAL_TIME ? (
@@ -510,17 +504,16 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Productivity Section */}
         <div className="max-w-7xl mx-auto backdrop-blur-sm rounded-lg shadow-lg p-6 h-full border-2 border-white/20 bg-transparent">
           <div className="flex items-center text-white font-semibold text-2xl mb-4">
-            <TrendingUp className="mr-3 text-green-400"></TrendingUp> Today's Productivity
+            <TrendingUp className="mr-3 text-green-400" /> Today's Productivity
           </div>
-          
+
           <div className="flex border-b border-stone-600 mb-4">
             <button
               className={`py-2 px-4 rounded-t-lg transition-colors text-sm font-medium ${
-                activeTab === "sessions"
-                  ? "bg-white/10 text-white border-b-2 border-emerald-500"
-                  : "text-stone-400 hover:text-white"
+                activeTab === "sessions" ? "bg-white/10 text-white border-b-2 border-emerald-500" : "text-stone-400 hover:text-white"
               }`}
               onClick={() => setActiveTab("sessions")}
             >
@@ -528,9 +521,7 @@ export default function Dashboard() {
             </button>
             <button
               className={`py-2 px-4 rounded-t-lg transition-colors text-sm font-medium ${
-                activeTab === "completed"
-                  ? "bg-white/10 text-white border-b-2 border-emerald-500"
-                  : "text-stone-400 hover:text-white"
+                activeTab === "completed" ? "bg-white/10 text-white border-b-2 border-emerald-500" : "text-stone-400 hover:text-white"
               }`}
               onClick={() => setActiveTab("completed")}
             >
@@ -540,102 +531,94 @@ export default function Dashboard() {
 
           <div className="h-[calc(400px)] overflow-y-auto pr-2 custom-scrollbar">
             {activeTab === "sessions" && (
-              focusSessions.length > 0 ? (
-                <div className="space-y-2">
-                  {focusSessions.map((session, index) => (
-                    <div 
-                      key={index} 
-                      className={`flex items-center justify-between p-2 rounded-lg bg-white/5 transition-all duration-300 ${
-                        removingSession === session.id ? "opacity-0 transform -translate-x-10 scale-95" : "opacity-100"
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0 pr-4 flex items-center">
-                        <span className="text-lg mr-2">
-                          {session.task_completed ? (
-                            <CheckCircle2 className="text-emerald-400 w-4 h-4" />
-                          ) : (
-                            <AlertCircle className="text-yellow-400 w-4 h-4" />
-                          )}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-white truncate text-sm">
-                            {session.task_name}
-                          </p>
-                          <p className="text-xs text-stone-400">
-                            {session.duration} minutes of focus at {format(new Date(session.start_time), "p")}
-                          </p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => handleRemoveSession(session.id)}
-                        className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors"
-                        aria-label="Remove session"
+              <>
+                {focusSessions.length > 0 ? (
+                  <div className="space-y-2">
+                    {focusSessions.map((session, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-center justify-between p-2 rounded-lg bg-white/5 transition-all duration-300 ${
+                          removingSession === session.id ? "opacity-0 transform -translate-x-10 scale-95" : "opacity-100"
+                        }`}
                       >
-                        <TrendingDown className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col justify-center items-center py-20">
-                  <div className="relative mb-6">
-                    <TrendingUp className="text-gray-400 w-20 h-20"></TrendingUp>
+                        <div className="flex-1 min-w-0 pr-4 flex items-center">
+                          <span className="text-lg mr-2">
+                            {session.task_completed ? (
+                              <CheckCircle2 className="text-emerald-400 w-4 h-4" />
+                            ) : (
+                              <AlertCircle className="text-yellow-400 w-4 h-4" />
+                            )}
+                          </span>
+                          <div>
+                            <p className="font-semibold text-white truncate text-sm">{session.task_name}</p>
+                            <p className="text-xs text-stone-400">
+                              {session.duration} minutes of focus at {format(new Date(session.start_time), "p")}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveSession(session.id)}
+                          className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors"
+                          aria-label="Remove session"
+                        >
+                          <TrendingDown className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-lg font-medium text-stone-300 mb-4">
-                    No focus sessions yet today
-                  </p>
-                  <p className="text-md font-medium text-stone-500 dark:text-stone-400 mb-4">
-                    Start a Pomodoro to see your productivity patterns
-                  </p>
-                </div>
-              )
+                ) : (
+                  <div className="flex flex-col justify-center items-center py-20">
+                    <div className="relative mb-6">
+                      <TrendingUp className="text-gray-400 w-20 h-20" />
+                    </div>
+                    <p className="text-lg font-medium text-stone-300 mb-4">No focus sessions yet today</p>
+                    <p className="text-md font-medium text-stone-500 dark:text-stone-400 mb-4">Start a Pomodoro to see your productivity patterns</p>
+                  </div>
+                )}
+              </>
             )}
 
             {activeTab === "completed" && (
-              completedTasks.length > 0 ? (
-                <div className="space-y-2">
-                  {completedTasks.map((task, index) => (
-                    <div 
-                      key={index} 
-                      className={`flex items-center justify-between p-2 rounded-lg bg-white/5 transition-colors duration-300 ${
-                        undoingTask === task.task_id ? "opacity-0 transform translate-x-10 scale-95" : "opacity-100"
-                      }`}
-                    >
-                      <div className="flex items-center">
-                        <span className="text-lg mr-2">
-                          <CheckCircle2 className="text-emerald-400 w-4 h-4" />
-                        </span>
-                        <div>
-                          <p className="font-semibold text-white truncate text-sm">
-                            {task.task_name}
-                          </p>
-                          <p className="text-xs text-stone-400">
-                            Completed at {format(new Date(task.completion_date), "p")}
-                          </p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => handleUndoCompletion(task.id)}
-                        className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors"
+              <>
+                {completedTasks.length > 0 ? (
+                  <div className="space-y-2">
+                    {completedTasks.map((task, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-center justify-between p-2 rounded-lg bg-white/5 transition-colors duration-300 ${
+                          undoingTask === task.task_id ? "opacity-0 transform translate-x-10 scale-95" : "opacity-100"
+                        }`}
                       >
-                        <Undo2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col justify-center items-center py-20">
-                  <div className="relative mb-6">
-                    <CheckCircle2 className="text-gray-400 w-20 h-20"></CheckCircle2>
+                        <div className="flex items-center">
+                          <span className="text-lg mr-2">
+                            <CheckCircle2 className="text-emerald-400 w-4 h-4" />
+                          </span>
+                          <div>
+                            <p className="font-semibold text-white truncate text-sm">{task.task_name}</p>
+                            <p className="text-xs text-stone-400">
+                              Completed at {format(new Date(task.completion_date), "p")}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleUndoCompletion(task.id)}
+                          className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors"
+                        >
+                          <Undo2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-lg font-medium text-stone-300 mb-4">
-                    No tasks finished yet today
-                  </p>
-                  <p className="text-md font-medium text-stone-500 dark:text-stone-400 mb-4">
-                    Check off a task to see it here!
-                  </p>
-                </div>
-              )
+                ) : (
+                  <div className="flex flex-col justify-center items-center py-20">
+                    <div className="relative mb-6">
+                      <CheckCircle2 className="text-gray-400 w-20 h-20" />
+                    </div>
+                    <p className="text-lg font-medium text-stone-300 mb-4">No tasks finished yet today</p>
+                    <p className="text-md font-medium text-stone-500 dark:text-stone-400 mb-4">Check off a task to see it here!</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

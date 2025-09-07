@@ -4,10 +4,10 @@ import {
   floorTo15, 
   ceilTo15, 
   isMultiple15, 
-  roundToNearest15 
+  roundToNearest15
 } from "../utils/calendarUtils";
 import { format, isAfter, isEqual, startOfDay } from "date-fns";
-import { PanelLeftClose } from "lucide-react";
+import { PanelLeftClose, Ban, Trash2, Save } from "lucide-react";
 
 export default function CalendarSidebar({
   isOpen,
@@ -368,27 +368,27 @@ export default function CalendarSidebar({
                 </label>
 
                 {/* Actions */}
-                <div className="flex justify-end space-x-3 pt-4">
+                <div className="flex justify-end space-x-3">
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="px-4 py-2 rounded-lg bg-neutral-800 text-gray-300 hover:bg-neutral-700 transition"
+                    className="px-2 py-2 rounded-lg bg-neutral-800 text-gray-300 hover:bg-neutral-700 transition"
                   >
-                    Cancel
+                    <Ban />
                   </button>
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
+                    className="px-2 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
                   >
-                    Delete
+                    <Trash2 />
                   </button>
                   <button
                     type="button"
                     onClick={handleSave}
-                    className="px-4 py-2 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700 transition"
+                    className="px-2 py-2 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700 transition"
                   >
-                    Save
+                    <Save />
                   </button>
                 </div>
               </>

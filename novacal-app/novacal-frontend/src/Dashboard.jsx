@@ -16,6 +16,9 @@ import {
 } from "lucide-react";
 import { format, isToday, startOfDay, endOfDay } from "date-fns";
 
+
+
+
 export default function Dashboard() {
   const initialTime = 45 * 60;
   const [timeLeft, setTimeLeft] = useState(initialTime);
@@ -30,6 +33,8 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("sessions");
   const [undoingTask, setUndoingTask] = useState(null);
   const [animatingTask, setAnimatingTask] = useState(null);
+  const [removingSession, setRemovingSession] = useState(null);
+
 
   const Card = ({ icon: Icon, title, value, description, color }) => (
     <div className="flex-1 min-w-0 p-6 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md transition-transform hover:scale-[1.025] group relative overflow-hidden">
@@ -44,6 +49,7 @@ export default function Dashboard() {
         />
       </svg>
 
+
       <div className="flex items-center justify-between mb-4 relative z-10">
         <div className="flex items-center">
           <span className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${color} bg-white/20 shadow-inner mr-3`}>
@@ -53,6 +59,7 @@ export default function Dashboard() {
         <TrendingUp className="w-5 h-5 text-green-400/80" aria-hidden />
       </div>
 
+
       <div className="relative z-10">
         <h3 className="text-base text-stone-200 font-semibold mb-1 tracking-tight">{title}</h3>
         <p className="text-4xl font-extrabold text-white mb-1">{value}</p>
@@ -60,6 +67,7 @@ export default function Dashboard() {
       </div>
     </div>
   );
+
 
   useEffect(() => {
     if (isRunning) {
@@ -80,6 +88,7 @@ export default function Dashboard() {
     return () => clearInterval(timerRef.current);
   }, [isRunning]);
 
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -95,11 +104,13 @@ export default function Dashboard() {
           })
           .sort((a, b) => new Date(a.start) - new Date(b.start));
 
+
         const sessionsResponse = await fetch("http://127.0.0.1:5000/api/focus_sessions");
         if (!sessionsResponse.ok) throw new Error(`Sessions HTTP error! status: ${sessionsResponse.status}`);
         const sessionsData = await sessionsResponse.json();
         const todaySessions = sessionsData.filter(session => isToday(new Date(session.start_time)));
         setFocusSessions(todaySessions);
+
 
         const completedTasksResponse = await fetch("http://127.0.0.1:5000/api/completed_tasks");
         if (!completedTasksResponse.ok) throw new Error(`Completed Tasks HTTP error! status: ${completedTasksResponse.status}`);
@@ -108,9 +119,11 @@ export default function Dashboard() {
         const todayCompleted = completedTasksData.filter(task => isToday(new Date(task.completion_date)));
         setCompletedTasks(todayCompleted);
 
+
         // Filter out tasks that are already in the completed list
         const filteredTasks = todayTasks.filter(task => !todayCompleted.some(completedTask => completedTask.task_id === task.id));
         setTasks(filteredTasks);
+
 
       } catch (e) {
         console.error("Failed to fetch data:", e);
@@ -122,15 +135,18 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+
   const handleSelectTask = (task) => {
     setSelectedTask(task);
   };
+
 
   const handleStartFocus = () => {
     if (selectedTask) {
       setIsRunning(true);
     }
   };
+
 
   const handleCompleteFocus = async (isTaskCompleted) => {
     setIsRunning(false);
@@ -147,6 +163,7 @@ export default function Dashboard() {
           }),
         });
 
+
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const newSession = await response.json();
         setFocusSessions(prevSessions => [...prevSessions, newSession]);
@@ -154,6 +171,7 @@ export default function Dashboard() {
         if (isTaskCompleted) {
           handleMoveToCompleted(selectedTask.id);
         }
+
 
         setSelectedTask(null);
         setTimeLeft(initialTime);
@@ -164,6 +182,7 @@ export default function Dashboard() {
       setTimeLeft(initialTime);
     }
   };
+
 
   const handleMoveToCompleted = async (taskId) => {
     setAnimatingTask(taskId);
@@ -197,6 +216,7 @@ export default function Dashboard() {
     }, 500);
   };
 
+
   const handleUndoCompletion = async (completedTaskId) => {
     const taskToMove = completedTasks.find(task => task.id === completedTaskId);
     if (taskToMove) {
@@ -213,8 +233,10 @@ export default function Dashboard() {
         const allTasks = await originalTaskResponse.json();
         const undoneTask = allTasks.find(t => t.id === taskToMove.task_id);
 
+
         setTasks(prevTasks => [...prevTasks, undoneTask].sort((a,b) => new Date(a.start) - new Date(b.start)));
         setCompletedTasks(prevCompleted => prevCompleted.filter(task => task.id !== completedTaskId));
+
 
       } catch (e) {
         console.error("Failed to undo completion:", e);
@@ -224,15 +246,37 @@ export default function Dashboard() {
     }
   };
 
+  // THIS FUNCTION REMOVES FOCUS SESSIONS BY ID (ALREADY SUPPORTED)
+  const handleRemoveSession = async (sessionId) => {
+    setRemovingSession(sessionId);
+    setTimeout(async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:5000/api/focus_sessions/${sessionId}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        setFocusSessions(prevSessions => prevSessions.filter(session => session.id !== sessionId));
+      } catch (e) {
+        console.error("Failed to remove session:", e);
+      } finally {
+        setRemovingSession(null);
+      }
+    }, 300);
+  };
+
+
   const formatTime = (secs) => {
     const minutes = Math.floor(secs / 60).toString().padStart(2, "0");
     const seconds = (secs % 60).toString().padStart(2, "0");
     return `${minutes}:${seconds}`;
   };
 
+
   const circumference = 2 * Math.PI * 54;
   const progress = ((initialTime - timeLeft) / initialTime) * circumference;
   const dashOffset = circumference - progress;
+
 
   return (
     <div className="min-h-screen dashboard-background p-6">
@@ -270,14 +314,14 @@ export default function Dashboard() {
                 icon={Target}
                 title="Focus Sessions"
                 value="24"
-                description="This month"
+                description="This week"
                 color="text-purple-400"
               />
               <Card
                 icon={CheckCircle2}
                 title="Tasks Completed"
                 value="89%"
-                description="This quarter"
+                description="This week"
                 color="text-emerald-400"
               />
             </div>
@@ -291,6 +335,7 @@ export default function Dashboard() {
                   Today's Tasks
                 </h2>
               </div>
+
 
               {loading ? (
                 <div className="flex justify-center items-center h-40 text-stone-400">
@@ -353,6 +398,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+
 
 
           <div className="flex flex-col items-center p-8 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md">
@@ -446,6 +492,7 @@ export default function Dashboard() {
           </div>
         </div>
 
+
         <div className="max-w-7xl mx-auto backdrop-blur-sm rounded-lg shadow-lg p-6 h-full border-2 border-white/20 bg-transparent">
           <div className="flex items-center text-white font-semibold text-2xl mb-4">
             <TrendingUp className="mr-3 text-green-400"></TrendingUp> Today's Productivity
@@ -474,12 +521,18 @@ export default function Dashboard() {
             </button>
           </div>
 
+
           <div className="h-[calc(400px)] overflow-y-auto pr-2 custom-scrollbar">
             {activeTab === "sessions" && (
               focusSessions.length > 0 ? (
                 <div className="space-y-2">
                   {focusSessions.map((session, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-white/5 transition-colors">
+                    <div 
+                      key={index} 
+                      className={`flex items-center justify-between p-2 rounded-lg bg-white/5 transition-all duration-300 ${
+                        removingSession === session.id ? "opacity-0 transform -translate-x-10 scale-95" : "opacity-100"
+                      }`}
+                    >
                       <div className="flex-1 min-w-0 pr-4 flex items-center">
                         <span className="text-lg mr-2">
                           {session.task_completed ? (
@@ -497,6 +550,13 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
+                      <button 
+                        onClick={() => handleRemoveSession(session.id)}
+                        className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors"
+                        aria-label="Remove session"
+                      >
+                        <TrendingDown className="w-5 h-5" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -514,6 +574,7 @@ export default function Dashboard() {
                 </div>
               )
             )}
+
 
             {activeTab === "completed" && (
               completedTasks.length > 0 ? (

@@ -404,6 +404,21 @@ def get_focus_sessions():
     finally:
         session.close()
 
+@app.route("/api/focus_sessions/<int:session_id>", methods=["DELETE"])
+def delete_focus_session(session_id):
+    session = Session()
+    try:
+        session.execute(focus_sessions_table.delete().where(focus_sessions_table.c.id == session_id))
+        session.commit()
+        return jsonify({"message": "Focus session deleted."}), 200
+    except Exception as e:
+        session.rollback()
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+
 @app.route("/api/completed_tasks", methods=["POST"])
 def complete_task():
     session = Session()

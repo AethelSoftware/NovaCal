@@ -2,8 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { format, addMinutes, differenceInMinutes } from "date-fns";
 import { X, ZapOff, Zap, AlertTriangle, ArrowRight } from "lucide-react";
 import { roundToNearest15 } from "../utils/calendarUtils";
-// Main component for creating a custom task modal
-
 
 export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
   const [name, setName] = useState("");
@@ -11,13 +9,12 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
   const [links, setLinks] = useState("");
   const [files, setFiles] = useState(null);
   const [start, setStart] = useState(() => format(new Date(), "yyyy-MM-dd'T'HH:mm"));
-  const [due, setDue] = useState(() => format(addMinutes(new Date(), 720), "yyyy-MM-dd'T'HH:mm")); // 12hr later
-  const [length, setLength] = useState(60); // min
+  const [due, setDue] = useState(() => format(addMinutes(new Date(), 720), "yyyy-MM-dd'T'HH:mm"));
+  const [length, setLength] = useState(60);
   const [importance, setImportance] = useState(2);
 
-  // Split block state
   const [splitEnabled, setSplitEnabled] = useState(false);
-  const [blockDuration, setBlockDuration] = useState(30); // Minutes
+  const [blockDuration, setBlockDuration] = useState(30);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,13 +33,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
     }
   }, [isOpen]);
 
-
-  // Split preview: breaks up the length (not interval from start to due!)
   const timeBlocks = useMemo(() => {
     const blocks = [];
     if (!splitEnabled || length < 1) return blocks;
     try {
-      // Compute blocks, starting at `start`
       let total = Number(length);
       let cursor = roundToNearest15(new Date(start));
       let count = 0;
@@ -50,23 +44,24 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
         let min = Math.min(blockDuration, total);
         let blockEnd = addMinutes(cursor, min);
         blocks.push({
-          start: format(cursor, "yyyy-MM-dd'T'HH:mm:ss"), // Use ISO string for backend
-          end: format(blockEnd, "yyyy-MM-dd'T'HH:mm:ss"), // Use ISO string for backend
-          length: min
+          start: format(cursor, "yyyy-MM-dd'T'HH:mm:ss"),
+          end: format(blockEnd, "yyyy-MM-dd'T'HH:mm:ss"),
+          length: min,
         });
         cursor = blockEnd;
         total -= min;
         count++;
       }
-    } catch { /* empty for now */}
+    } catch {}
     return blocks;
   }, [splitEnabled, start, length, blockDuration]);
 
-  // Duration between start & due (display only)
   const startDate = new Date(start);
   const dueDate = new Date(due);
-  const durationBetween = isNaN(dueDate - startDate) || dueDate < startDate ? null :
-    differenceInMinutes(dueDate, startDate);
+  const durationBetween =
+    isNaN(dueDate - startDate) || dueDate < startDate
+      ? null
+      : differenceInMinutes(dueDate, startDate);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -82,51 +77,51 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
       alert("Please enter a valid length in minutes.");
       return;
     }
-    // Do not send to backend. Instead, invoke onSubmit with all our info (including preview blocks).
     onSubmit({
       name: name.trim(),
       description: description.trim(),
       links: links.trim(),
       files,
-      start, // Pass the ISO string directly
-      due,   // Pass the ISO string directly
+      start,
+      due,
       length: Number(length),
       importance,
-      splitEnabled, // Pass splitEnabled status
-      blockDuration: Number(blockDuration), // Pass block duration
-      blocks: timeBlocks, // The array of generated blocks for the custom task
+      splitEnabled,
+      blockDuration: Number(blockDuration),
+      blocks: timeBlocks,
     });
     onClose();
   };
 
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center backdrop-blur-sm justify-center px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 backdrop-blur-sm">
       <form
         onSubmit={handleSubmit}
-        className="bg-black rounded-xl max-h-[85vh] w-full max-w-2xl flex flex-col shadow-2xl text-white border border-gray-800"
+        className="bg-zinc-950 rounded-2xl max-h-[85vh] w-full max-w-2xl flex flex-col shadow-2xl text-white border border-zinc-800 overflow-hidden custom-scrollbar"
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-task-modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-          {/* Title */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
           <h2
             id="new-task-modal-title"
-            className="text-2xl font-semibold text-white"
+            className="text-xl font-semibold tracking-tight"
           >
-            New Task
+            Create New Task
           </h2>
 
-          {/* Importance buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setImportance(1)}
-              title="Low"
-              className={`p-2 rounded-full flex items-center justify-center transition-all
-                ${importance === 1 ? "bg-sky-600 scale-110" : "bg-zinc-800 hover:bg-zinc-700"}`}
+              title="Low Priority"
+              className={`p-2 rounded-full transition-colors ${
+                importance === 1
+                  ? "bg-sky-600"
+                  : "bg-zinc-800 hover:bg-zinc-700"
+              }`}
             >
               <ZapOff
                 className={importance === 1 ? "text-white" : "text-sky-300"}
@@ -136,9 +131,12 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
             <button
               type="button"
               onClick={() => setImportance(2)}
-              title="Normal"
-              className={`p-2 rounded-full flex items-center justify-center transition-all
-                ${importance === 2 ? "bg-yellow-500 scale-110" : "bg-zinc-800 hover:bg-zinc-700"}`}
+              title="Normal Priority"
+              className={`p-2 rounded-full transition-colors ${
+                importance === 2
+                  ? "bg-yellow-500"
+                  : "bg-zinc-800 hover:bg-zinc-700"
+              }`}
             >
               <Zap
                 className={importance === 2 ? "text-white" : "text-yellow-300"}
@@ -148,9 +146,12 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
             <button
               type="button"
               onClick={() => setImportance(3)}
-              title="High"
-              className={`p-2 rounded-full flex items-center justify-center transition-all
-                ${importance === 3 ? "bg-red-500 scale-110" : "bg-zinc-800 hover:bg-zinc-700"}`}
+              title="High Priority"
+              className={`p-2 rounded-full transition-colors ${
+                importance === 3
+                  ? "bg-red-500"
+                  : "bg-zinc-800 hover:bg-zinc-700"
+              }`}
             >
               <AlertTriangle
                 className={importance === 3 ? "text-white" : "text-red-300"}
@@ -159,66 +160,65 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
             </button>
           </div>
 
-          {/* Close button */}
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-red-400 transition duration-300"
+            className="text-zinc-400 hover:text-red-400 transition"
             title="Close"
           >
             <X size={22} />
           </button>
         </div>
-        
-        {/* Scrollable Content */}
-        <div className="overflow-y-auto p-6 flex-1 space-y-5 calendar-scrollbar">
+
+        {/* Scrollable content */}
+        <div className="overflow-y-auto p-6 flex-1 space-y-6">
           {/* Task Name */}
           <div>
-            <label className="block text-sm text-stone-300 mb-1">Task Name</label>
+            <label className="block text-sm text-zinc-400 mb-1">Task Name</label>
             <input
               type="text"
               required
               maxLength={100}
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               autoFocus
-              className="w-full rounded-md bg-white/5 border border-white/10 p-2 text-white transition"
+              className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
             />
           </div>
 
           {/* Date Range */}
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-sm text-stone-300 mb-1">Start</label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-zinc-400 mb-1">Start</label>
               <input
                 type="datetime-local"
                 value={start}
-                onChange={e => setStart(e.target.value)}
-                onBlur={e => {
+                onChange={(e) => setStart(e.target.value)}
+                onBlur={(e) => {
                   const picked = new Date(e.target.value);
                   if (!isNaN(picked.getTime())) {
                     const rounded = roundToNearest15(picked);
                     setStart(format(rounded, "yyyy-MM-dd'T'HH:mm"));
                   }
                 }}
-                className="w-full rounded-md bg-white/5 border border-white/10 p-2 text-white transition"
+                className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
                 required
               />
             </div>
-            <div className="flex-1">
-              <label className="block text-sm text-stone-300 mb-1">Due</label>
+            <div>
+              <label className="block text-sm text-zinc-400 mb-1">Due</label>
               <input
                 type="datetime-local"
                 value={due}
-                onChange={e => setDue(e.target.value)}
-                onBlur={e => {
+                onChange={(e) => setDue(e.target.value)}
+                onBlur={(e) => {
                   const picked = new Date(e.target.value);
                   if (!isNaN(picked.getTime())) {
                     const rounded = roundToNearest15(picked);
                     setDue(format(rounded, "yyyy-MM-dd'T'HH:mm"));
                   }
                 }}
-                className="w-full rounded-md bg-white/5 border border-white/10 p-2 text-white transition"
+                className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
                 required
               />
             </div>
@@ -226,7 +226,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
 
           {/* Task Length */}
           <div>
-            <label className="block text-sm text-stone-300 mb-1">Task Length (minutes)</label>
+            <label className="block text-sm text-zinc-400 mb-1">Task Length (minutes)</label>
             <input
               type="number"
               min={15}
@@ -238,94 +238,105 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
                   setLength(Math.round(length / 15) * 15);
                 }
               }}
-              className="w-full rounded-md bg-white/5 border border-white/10 p-2 text-white focus:ring-2 transition"
+              className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
               required
             />
+            {durationBetween !== null && (
+              <p className="mt-1 text-sm text-zinc-500">
+                Available interval: {Math.floor(durationBetween / 60)}h {durationBetween % 60}m
+              </p>
+            )}
           </div>
-
-          {durationBetween !== null && (
-            <p className="text-stone-400 text-sm">
-              Available interval: {Math.floor(durationBetween / 60)}h {durationBetween % 60}m
-            </p>
-          )}
 
           {/* Description */}
           <div>
-            <label className="block text-sm text-stone-300 mb-1">Description</label>
+            <label className="block text-sm text-zinc-400 mb-1">Description</label>
             <textarea
               value={description}
-              onChange={e => setDescription(e.target.value)}
+              onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full rounded-md bg-white/5 border border-white/10 p-2 text-white resize-y focus:ring-2 transition"
+              className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
             />
           </div>
 
           {/* Links */}
           <div>
-            <label className="block text-sm text-stone-300 mb-1">Links (comma separated)</label>
+            <label className="block text-sm text-zinc-400 mb-1">Links (comma separated)</label>
             <input
               type="text"
               value={links}
-              onChange={e => setLinks(e.target.value)}
+              onChange={(e) => setLinks(e.target.value)}
               placeholder="https://example.com, https://docs.com"
-              className="w-full rounded-md bg-white/5 border border-white/10 p-2 text-white focus:ring-2 transition"
+              className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
             />
           </div>
 
-          {/* Importance */}
-          
-
-          {/* Attach Files */}
+          {/* Files */}
           <div>
             <div
-              className="w-full h-24 rounded-xl border-2 border-dashed border-sky-700 flex items-center justify-center flex-col gap-2 bg-slate-900 cursor-pointer hover:border-sky-800 transition"
-              onClick={() => document.getElementById('file-upload-input').click()}
+              className="w-full h-28 rounded-xl border-2 border-dashed border-zinc-600 flex items-center justify-center flex-col gap-2 bg-zinc-900/50 cursor-pointer hover:border-zinc-500 transition"
+              onClick={() => document.getElementById("file-upload-input").click()}
               tabIndex={0}
               role="button"
               aria-label="Select files"
-              onKeyDown={e => {
-                if (e.key === " " || e.key === "Enter") document.getElementById('file-upload-input').click();
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter")
+                  document.getElementById("file-upload-input").click();
               }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="text-stone-300" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h2M8 8V6m0 0a2 2 0 114 0v2m0 0H8"></path></svg>
-              <span className="text-stone-200 text-sm">Drag or click to select files</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-zinc-400"
+                width="28"
+                height="28"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h2M8 8V6m0 0a2 2 0 114 0v2m0 0H8"
+                ></path>
+              </svg>
+              <span className="text-zinc-400 text-sm">Drag or click to select files</span>
               <input
                 type="file"
                 id="file-upload-input"
                 multiple
                 style={{ display: "none" }}
-                onChange={e => setFiles(e.target.files)}
+                onChange={(e) => setFiles(e.target.files)}
                 accept="*"
               />
             </div>
             {files && files.length > 0 && (
-              <p className="mt-1 text-sm text-stone-300">
+              <p className="mt-1 text-sm text-zinc-400">
                 {files.length} file{files.length > 1 ? "s" : ""} selected
               </p>
             )}
           </div>
 
-
           {/* Split Task Option */}
           <div className="space-y-4">
-            {/* Split Toggle */}
-            <div className="flex items-center justify-between bg-white/10 p-4 rounded-xl border border-white/20">
-              <span className="text-stone-200 font-medium">Split task into blocks?</span>
+            <div className="flex items-center justify-between bg-zinc-900/50 p-4 rounded-xl border border-zinc-700">
+              <span className="text-zinc-200 font-medium">
+                Split task into blocks?
+              </span>
               <input
                 type="checkbox"
                 checked={splitEnabled}
                 onChange={(e) => setSplitEnabled(e.target.checked)}
-                className="form-checkbox h-5 w-5 accent-cyan-500"
+                className="h-5 w-5 accent-violet-500"
               />
             </div>
 
-            {/* Split Options */}
             {splitEnabled && (
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4">
-                
-                {/* Block Duration Input */}
+              <div className="bg-zinc-900/50 border border-zinc-700 rounded-xl p-4 space-y-4">
                 <div className="flex items-center gap-3">
-                  <label className="text-stone-200 font-medium">Block Length (min):</label>
+                  <label className="text-zinc-200 font-medium">
+                    Block Length (min):
+                  </label>
                   <input
                     type="number"
                     min={15}
@@ -338,26 +349,27 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
                         setBlockDuration(Math.round(blockDuration / 15) * 15);
                       }
                     }}
-                    className="w-20 rounded-md bg-white/5 border border-white/10 p-2 text-white focus:ring-1 focus:ring-sky-400"
+                    className="w-20 rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
                   />
                 </div>
 
-                {/* Task Preview */}
                 {timeBlocks.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto bg-white/5 border border-white/10 rounded-xl p-3 text-white/90">
-                    <div className="text-stone-300 font-semibold mb-2">Task Preview:</div>
+                  <div className="max-h-40 overflow-y-auto bg-zinc-950/40 border border-zinc-800 rounded-xl p-3 text-white/90">
+                    <div className="text-zinc-400 font-semibold mb-2">
+                      Task Preview
+                    </div>
                     <ol className="list-decimal list-inside space-y-2">
                       {timeBlocks.map((b, i) => (
                         <li
                           key={i}
-                          className="flex items-center justify-between bg-white/10 px-3 py-2 rounded-lg text-sm"
+                          className="flex items-center justify-between bg-zinc-900/70 px-3 py-2 rounded-lg text-sm"
                         >
                           <div className="flex items-center gap-2">
-                            <span>{format(new Date(b.start), "M/d/yy - HH:mm")}</span>
-                            <ArrowRight className="w-4 h-4 text-stone-400" />
-                            <span>{format(new Date(b.end), "M/d/yy - HH:mm")}</span>
+                            <span>{format(new Date(b.start), "HH:mm")}</span>
+                            <ArrowRight className="w-4 h-4 text-zinc-500" />
+                            <span>{format(new Date(b.end), "HH:mm")}</span>
                           </div>
-                          <span className="text-stone-400 font-mono">{b.length} min</span>
+                          <span className="text-zinc-400 font-mono">{b.length} min</span>
                         </li>
                       ))}
                     </ol>
@@ -366,23 +378,22 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               </div>
             )}
           </div>
-
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-4 px-6 py-4 border-t border-white/10">
+        {/* Footer */}
+        <div className="flex justify-end space-x-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-zinc-700 text-white hover:bg-zinc-600 transition duration-300 cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold transition duration-300 cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition"
           >
-            Save
+            Save Task
           </button>
         </div>
       </form>

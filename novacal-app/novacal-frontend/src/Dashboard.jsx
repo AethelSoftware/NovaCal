@@ -16,25 +16,39 @@ import {
 } from "lucide-react";
 import { format, isToday, startOfDay, endOfDay } from "date-fns";
 
-
-
+// Keys for localStorage
+const LOCAL_STORAGE_TIME_KEY = "focusTimerTimeLeft";
+const LOCAL_STORAGE_RUNNING_KEY = "focusTimerIsRunning";
+const LOCAL_STORAGE_TASK_KEY = "focusTimerSelectedTask";
+const INITIAL_TIME = 45 * 60;
 
 export default function Dashboard() {
-  const initialTime = 45 * 60;
-  const [timeLeft, setTimeLeft] = useState(initialTime);
-  const [isRunning, setIsRunning] = useState(false);
+  // Initialize state from localStorage, falling back to defaults if not found
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const savedTime = localStorage.getItem(LOCAL_STORAGE_TIME_KEY);
+    return savedTime ? parseInt(savedTime, 10) : INITIAL_TIME;
+  });
+
+  const [isRunning, setIsRunning] = useState(() => {
+    const savedRunning = localStorage.getItem(LOCAL_STORAGE_RUNNING_KEY);
+    return savedRunning === "true"; // localStorage stores strings
+  });
+
+  const [selectedTask, setSelectedTask] = useState(() => {
+    const savedTask = localStorage.getItem(LOCAL_STORAGE_TASK_KEY);
+    return savedTask ? JSON.parse(savedTask) : null;
+  });
+
   const timerRef = useRef(null);
   const [tasks, setTasks] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedTask, setSelectedTask] = useState(null);
   const [focusSessions, setFocusSessions] = useState([]);
   const [activeTab, setActiveTab] = useState("sessions");
   const [undoingTask, setUndoingTask] = useState(null);
   const [animatingTask, setAnimatingTask] = useState(null);
   const [removingSession, setRemovingSession] = useState(null);
-
 
   const Card = ({ icon: Icon, title, value, description, color }) => (
     <div className="flex-1 min-w-0 p-6 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md transition-transform hover:scale-[1.025] group relative overflow-hidden">
@@ -49,7 +63,6 @@ export default function Dashboard() {
         />
       </svg>
 
-
       <div className="flex items-center justify-between mb-4 relative z-10">
         <div className="flex items-center">
           <span className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${color} bg-white/20 shadow-inner mr-3`}>
@@ -59,7 +72,6 @@ export default function Dashboard() {
         <TrendingUp className="w-5 h-5 text-green-400/80" aria-hidden />
       </div>
 
-
       <div className="relative z-10">
         <h3 className="text-base text-stone-200 font-semibold mb-1 tracking-tight">{title}</h3>
         <p className="text-4xl font-extrabold text-white mb-1">{value}</p>
@@ -68,7 +80,7 @@ export default function Dashboard() {
     </div>
   );
 
-
+  // Effect to handle the timer
   useEffect(() => {
     if (isRunning) {
       timerRef.current = setInterval(() => {
@@ -88,6 +100,16 @@ export default function Dashboard() {
     return () => clearInterval(timerRef.current);
   }, [isRunning]);
 
+  // Effect to persist state to localStorage
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_TIME_KEY, timeLeft.toString());
+    localStorage.setItem(LOCAL_STORAGE_RUNNING_KEY, isRunning.toString());
+    if (selectedTask) {
+      localStorage.setItem(LOCAL_STORAGE_TASK_KEY, JSON.stringify(selectedTask));
+    } else {
+      localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
+    }
+  }, [timeLeft, isRunning, selectedTask]);
 
   useEffect(() => {
     async function fetchData() {
@@ -104,13 +126,11 @@ export default function Dashboard() {
           })
           .sort((a, b) => new Date(a.start) - new Date(b.start));
 
-
         const sessionsResponse = await fetch("http://127.0.0.1:5000/api/focus_sessions");
         if (!sessionsResponse.ok) throw new Error(`Sessions HTTP error! status: ${sessionsResponse.status}`);
         const sessionsData = await sessionsResponse.json();
         const todaySessions = sessionsData.filter(session => isToday(new Date(session.start_time)));
         setFocusSessions(todaySessions);
-
 
         const completedTasksResponse = await fetch("http://127.0.0.1:5000/api/completed_tasks");
         if (!completedTasksResponse.ok) throw new Error(`Completed Tasks HTTP error! status: ${completedTasksResponse.status}`);
@@ -119,12 +139,23 @@ export default function Dashboard() {
         const todayCompleted = completedTasksData.filter(task => isToday(new Date(task.completion_date)));
         setCompletedTasks(todayCompleted);
 
-
         // Filter out tasks that are already in the completed list
         const filteredTasks = todayTasks.filter(task => !todayCompleted.some(completedTask => completedTask.task_id === task.id));
         setTasks(filteredTasks);
 
-
+        // If a task was selected and persisted, find the full task object
+        const savedTask = localStorage.getItem(LOCAL_STORAGE_TASK_KEY);
+        if (savedTask) {
+          const parsedTask = JSON.parse(savedTask);
+          const foundTask = todayTasks.find(t => t.id === parsedTask.id);
+          if (foundTask) {
+            setSelectedTask(foundTask);
+          } else {
+            // If the persisted task is not in today's list, clear it
+            setSelectedTask(null);
+            localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
+          }
+        }
       } catch (e) {
         console.error("Failed to fetch data:", e);
         setError("Failed to load data.");
@@ -135,11 +166,10 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-
   const handleSelectTask = (task) => {
     setSelectedTask(task);
+    localStorage.setItem(LOCAL_STORAGE_TASK_KEY, JSON.stringify(task));
   };
-
 
   const handleStartFocus = () => {
     if (selectedTask) {
@@ -147,10 +177,9 @@ export default function Dashboard() {
     }
   };
 
-
   const handleCompleteFocus = async (isTaskCompleted) => {
     setIsRunning(false);
-    const durationInMinutes = Math.floor((initialTime - timeLeft) / 60);
+    const durationInMinutes = Math.floor((INITIAL_TIME - timeLeft) / 60);
     if (selectedTask) {
       try {
         const response = await fetch("http://127.0.0.1:5000/api/focus_sessions", {
@@ -163,7 +192,6 @@ export default function Dashboard() {
           }),
         });
 
-
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const newSession = await response.json();
         setFocusSessions(prevSessions => [...prevSessions, newSession]);
@@ -172,17 +200,16 @@ export default function Dashboard() {
           handleMoveToCompleted(selectedTask.id);
         }
 
-
         setSelectedTask(null);
-        setTimeLeft(initialTime);
+        localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
+        setTimeLeft(INITIAL_TIME);
       } catch (e) {
         console.error("Failed to save focus session:", e);
       }
     } else {
-      setTimeLeft(initialTime);
+      setTimeLeft(INITIAL_TIME);
     }
   };
-
 
   const handleMoveToCompleted = async (taskId) => {
     setAnimatingTask(taskId);
@@ -206,6 +233,7 @@ export default function Dashboard() {
               
               if (selectedTask?.id === taskId) {
                   setSelectedTask(null);
+                  localStorage.removeItem(LOCAL_STORAGE_TASK_KEY);
               }
           } catch (e) {
               console.error("Failed to move task:", e);
@@ -215,7 +243,6 @@ export default function Dashboard() {
       }
     }, 500);
   };
-
 
   const handleUndoCompletion = async (completedTaskId) => {
     const taskToMove = completedTasks.find(task => task.id === completedTaskId);
@@ -233,10 +260,8 @@ export default function Dashboard() {
         const allTasks = await originalTaskResponse.json();
         const undoneTask = allTasks.find(t => t.id === taskToMove.task_id);
 
-
         setTasks(prevTasks => [...prevTasks, undoneTask].sort((a,b) => new Date(a.start) - new Date(b.start)));
         setCompletedTasks(prevCompleted => prevCompleted.filter(task => task.id !== completedTaskId));
-
 
       } catch (e) {
         console.error("Failed to undo completion:", e);
@@ -246,7 +271,6 @@ export default function Dashboard() {
     }
   };
 
-  // THIS FUNCTION REMOVES FOCUS SESSIONS BY ID (ALREADY SUPPORTED)
   const handleRemoveSession = async (sessionId) => {
     setRemovingSession(sessionId);
     setTimeout(async () => {
@@ -265,18 +289,15 @@ export default function Dashboard() {
     }, 300);
   };
 
-
   const formatTime = (secs) => {
     const minutes = Math.floor(secs / 60).toString().padStart(2, "0");
     const seconds = (secs % 60).toString().padStart(2, "0");
     return `${minutes}:${seconds}`;
   };
 
-
   const circumference = 2 * Math.PI * 54;
-  const progress = ((initialTime - timeLeft) / initialTime) * circumference;
+  const progress = ((INITIAL_TIME - timeLeft) / INITIAL_TIME) * circumference;
   const dashOffset = circumference - progress;
-
 
   return (
     <div className="min-h-screen dashboard-background p-6">
@@ -335,7 +356,6 @@ export default function Dashboard() {
                   Today's Tasks
                 </h2>
               </div>
-
 
               {loading ? (
                 <div className="flex justify-center items-center h-40 text-stone-400">
@@ -399,8 +419,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-
-
           <div className="flex flex-col items-center p-8 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md">
             <div className="flex items-center w-full mb-6">
               <Timer className="w-6 h-6 mr-3 text-stone-700 dark:text-white" />
@@ -446,7 +464,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex justify-center gap-4 mt-2 mb-3">
-              {!isRunning && timeLeft === initialTime ? (
+              {!isRunning && timeLeft === INITIAL_TIME ? (
                 <button
                   onClick={handleStartFocus}
                   className="bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
@@ -492,7 +510,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-
         <div className="max-w-7xl mx-auto backdrop-blur-sm rounded-lg shadow-lg p-6 h-full border-2 border-white/20 bg-transparent">
           <div className="flex items-center text-white font-semibold text-2xl mb-4">
             <TrendingUp className="mr-3 text-green-400"></TrendingUp> Today's Productivity
@@ -520,7 +537,6 @@ export default function Dashboard() {
               Completed Tasks ({completedTasks.length})
             </button>
           </div>
-
 
           <div className="h-[calc(400px)] overflow-y-auto pr-2 custom-scrollbar">
             {activeTab === "sessions" && (
@@ -575,7 +591,6 @@ export default function Dashboard() {
               )
             )}
 
-
             {activeTab === "completed" && (
               completedTasks.length > 0 ? (
                 <div className="space-y-2">
@@ -586,7 +601,6 @@ export default function Dashboard() {
                         undoingTask === task.task_id ? "opacity-0 transform translate-x-10 scale-95" : "opacity-100"
                       }`}
                     >
-                      {/* Container for the icon and text */}
                       <div className="flex items-center">
                         <span className="text-lg mr-2">
                           <CheckCircle2 className="text-emerald-400 w-4 h-4" />
@@ -600,7 +614,6 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      {/* Undo button, now a sibling of the task info container */}
                       <button 
                         onClick={() => handleUndoCompletion(task.id)}
                         className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors"

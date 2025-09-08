@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { 
-  toLocalISOString, 
-  floorTo15, 
-  ceilTo15, 
-  isMultiple15, 
-  roundToNearest15
+import {
+  toLocalISOString,
+  floorTo15,
+  ceilTo15,
+  isMultiple15,
+  roundToNearest15,
 } from "../utils/calendarUtils";
 import { format, isAfter, isEqual, startOfDay } from "date-fns";
-import { PanelLeftClose, Ban, Trash2, Save } from "lucide-react";
+import {
+  PanelLeftClose,
+  Ban,
+  Trash2,
+  Save,
+} from "lucide-react";
 
 export default function CalendarSidebar({
   isOpen,
@@ -90,8 +95,14 @@ export default function CalendarSidebar({
       return;
     }
 
-    let startDate = getDateFromTimeString(startTimeStr, new Date(selectedTask.start));
-    let endDate = getDateFromTimeString(endTimeStr, new Date(selectedTask.end));
+    let startDate = getDateFromTimeString(
+      startTimeStr,
+      new Date(selectedTask.start)
+    );
+    let endDate = getDateFromTimeString(
+      endTimeStr,
+      new Date(selectedTask.end)
+    );
 
     startDate = floorTo15(startDate);
     endDate = ceilTo15(endDate);
@@ -100,7 +111,6 @@ export default function CalendarSidebar({
       alert("Start and end time must be on a 15-minute boundary.");
       return;
     }
-
     if (!startDate || !endDate) {
       alert("Please enter valid start and end times.");
       return;
@@ -151,9 +161,10 @@ export default function CalendarSidebar({
     if (!selectedTask) return;
     if (!window.confirm("Delete this task permanently?")) return;
     try {
-      const res = await fetch(`http://127.0.0.1:5000/api/tasks/${selectedTask.id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `http://127.0.0.1:5000/api/tasks/${selectedTask.id}`,
+        { method: "DELETE" }
+      );
       if (!res.ok) throw new Error("Failed to delete task");
       onUpdateTask(null, selectedTask.id);
       setSelectedTask(null);
@@ -167,22 +178,29 @@ export default function CalendarSidebar({
   const tabStyle = (active) =>
     `px-4 py-2 font-semibold border-b-2 transition-colors ${
       active
-        ? "border-sky-500 text-white"
-        : "border-transparent text-gray-500 hover:text-white hover:border-gray-700"
+        ? "border-violet-500 text-white"
+        : "border-transparent text-zinc-500 hover:text-white hover:border-zinc-700"
     }`;
 
   return (
     <div
-      className="fixed top-0 right-0 h-full w-[400px] bg-black shadow-2xl z-50 border-l border-neutral-800 transition-transform duration-300"
-      style={{ transform: isOpen ? "translateX(0)" : "translateX(100%)" }}
+      className="fixed top-0 right-0 h-full w-[420px] bg-zinc-950 shadow-2xl z-50 border-l border-zinc-800 flex flex-col"
+      role="complementary"
+      aria-label="Calendar Sidebar"
     >
       {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b border-neutral-800">
+      <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
         <div className="flex space-x-2">
-          <button className={tabStyle(activeTab === "upcoming")} onClick={() => setActiveTab("upcoming")}>
+          <button
+            className={tabStyle(activeTab === "upcoming")}
+            onClick={() => setActiveTab("upcoming")}
+          >
             Upcoming
           </button>
-          <button className={tabStyle(activeTab === "tasks")} onClick={() => setActiveTab("tasks")}>
+          <button
+            className={tabStyle(activeTab === "tasks")}
+            onClick={() => setActiveTab("tasks")}
+          >
             Tasks
           </button>
         </div>
@@ -195,7 +213,7 @@ export default function CalendarSidebar({
           }}
           aria-label="Close Sidebar"
           type="button"
-          className="text-gray-400 hover:text-red-500 transition p-2"
+          className="text-zinc-400 hover:text-red-400 transition"
         >
           <PanelLeftClose size={22} />
         </button>
@@ -203,9 +221,9 @@ export default function CalendarSidebar({
 
       {/* Upcoming */}
       {activeTab === "upcoming" && (
-        <div className="overflow-y-auto h-[calc(100%-56px)] p-6 space-y-4">
+        <div className="overflow-y-auto p-6 flex-1 space-y-4 custom-scrollbar">
           {upcomingTasks.length === 0 ? (
-            <p className="text-center text-gray-500 mt-8">No upcoming tasks</p>
+            <p className="text-center text-zinc-500 mt-8">No upcoming tasks</p>
           ) : (
             upcomingTasks.map((task) => {
               const start = new Date(task.start);
@@ -218,22 +236,29 @@ export default function CalendarSidebar({
                     setActiveTab("tasks");
                   }}
                   type="button"
-                  className="w-full text-left rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 shadow-sm transition p-4"
+                  className="w-full text-left rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 shadow-sm transition p-4"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-white text-base truncate max-w-[70%]">
-                      {task.name.length > 28 ? task.name.slice(0, 28) + "…" : task.name}
+                    <span className="font-semibold text-white text-base truncate max-w-[70%]">
+                      {task.name.length > 28
+                        ? task.name.slice(0, 28) + "…"
+                        : task.name}
                     </span>
-                    <span className="ml-auto rounded-md px-2 py-0.5 text-xs bg-neutral-800 text-gray-400 font-mono">
+                    <span className="ml-auto rounded-md px-2 py-0.5 text-xs bg-zinc-800 text-zinc-400 font-mono">
                       {format(start, "MM/dd")}
                     </span>
                   </div>
                   {task.description && (
-                    <div className="text-sm text-gray-400 truncate max-w-full mt-1" title={task.description}>
-                      {task.description.length > 48 ? task.description.slice(0, 48) + "…" : task.description}
+                    <div
+                      className="text-sm text-zinc-400 truncate mt-1"
+                      title={task.description}
+                    >
+                      {task.description.length > 48
+                        ? task.description.slice(0, 48) + "…"
+                        : task.description}
                     </div>
                   )}
-                  <div className="text-xs text-gray-500 mt-2 font-mono">
+                  <div className="text-xs text-zinc-500 mt-2 font-mono">
                     {format(start, "EEE h:mmaaa")} – {format(end, "h:mmaaa")}
                   </div>
                 </button>
@@ -245,11 +270,11 @@ export default function CalendarSidebar({
 
       {/* Tasks */}
       {activeTab === "tasks" && (
-        <div className="flex h-[calc(100%-56px)]">
+        <div className="flex flex-1 overflow-hidden">
           {/* Sidebar Task List */}
-          <nav className="w-1/3 border-r border-neutral-800 overflow-y-auto p-2">
+          <nav className="w-1/3 border-r border-zinc-800 overflow-y-auto p-2 custom-scrollbar">
             {upcomingTasks.length === 0 ? (
-              <p className="text-gray-500 text-center mt-4">No tasks</p>
+              <p className="text-zinc-500 text-center mt-4">No tasks</p>
             ) : (
               upcomingTasks.map((task) => {
                 const isSelected = selectedTask?.id === task.id;
@@ -258,10 +283,10 @@ export default function CalendarSidebar({
                     key={task.id}
                     onClick={() => setSelectedTask(task)}
                     type="button"
-                    className={`block w-full text-left mb-1 p-2 rounded-md transition ${
+                    className={`block w-full text-left mb-1 p-2 rounded-lg transition ${
                       isSelected
-                        ? "bg-sky-600 text-white font-bold"
-                        : "bg-neutral-900 hover:bg-neutral-800 text-gray-200"
+                        ? "bg-violet-600 text-white font-semibold"
+                        : "bg-zinc-900 hover:bg-zinc-800 text-zinc-200"
                     }`}
                   >
                     {task.name}
@@ -272,128 +297,183 @@ export default function CalendarSidebar({
           </nav>
 
           {/* Task Editor */}
-          <div className="flex-grow overflow-y-auto p-4 space-y-4">
+          <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
             {selectedTask ? (
               <>
-                <label className="block">
-                  <span className="block text-sm text-gray-400 mb-1">Task Name</span>
+                {/* Name */}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">
+                    Task Name
+                  </label>
                   <input
                     type="text"
                     maxLength={100}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-lg bg-neutral-900 border border-neutral-700 p-2 text-white focus:ring-2 focus:ring-sky-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                     required
                   />
-                </label>
+                </div>
 
-                <label className="block">
-                  <span className="block text-sm text-gray-400 mb-1">Description</span>
+                {/* Description */}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">
+                    Description
+                  </label>
                   <textarea
                     rows={4}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full rounded-lg bg-neutral-900 border border-neutral-700 p-2 text-white resize-y focus:ring-2 focus:ring-sky-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white resize-y focus:outline-none focus:ring-1 focus:ring-violet-500"
                     placeholder="Add details..."
                   />
-                </label>
+                </div>
 
-                <label className="block">
-                  <span className="block text-sm text-gray-400 mb-1">Links</span>
+                {/* Links */}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">
+                    Links
+                  </label>
                   <input
                     type="text"
                     value={links}
                     onChange={(e) => setLinks(e.target.value)}
-                    className="w-full rounded-lg bg-neutral-900 border border-neutral-700 p-2 text-white focus:ring-2 focus:ring-sky-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                     placeholder="https://example.com, https://docs.com"
                   />
-                </label>
+                </div>
 
-                {/* Time Inputs */}
-                <label className="block">
-                  <span className="block text-sm text-gray-400 mb-1">Start Time</span>
+                {/* Start Time */}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">
+                    Start Time
+                  </label>
                   <input
                     type="time"
                     value={startTimeStr}
                     onChange={(e) => setStartTimeStr(e.target.value)}
                     onBlur={(e) => {
-                      const picked = getDateFromTimeString(e.target.value, new Date(selectedTask.start));
+                      const picked = getDateFromTimeString(
+                        e.target.value,
+                        new Date(selectedTask.start)
+                      );
                       if (picked) {
                         const rounded = roundToNearest15(picked);
                         if (rounded) {
-                          const h = rounded.getHours().toString().padStart(2, "0");
-                          const m = rounded.getMinutes().toString().padStart(2, "0");
+                          const h = rounded.getHours()
+                            .toString()
+                            .padStart(2, "0");
+                          const m = rounded
+                            .getMinutes()
+                            .toString()
+                            .padStart(2, "0");
                           setStartTimeStr(`${h}:${m}`);
                         }
                       }
                     }}
-                    className="w-full rounded-lg bg-neutral-900 border border-neutral-700 p-2 text-white focus:ring-2 focus:ring-sky-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                     required
                   />
-                </label>
+                </div>
 
-                <label className="block">
-                  <span className="block text-sm text-gray-400 mb-1">End Time</span>
+                {/* End Time */}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">
+                    End Time
+                  </label>
                   <input
                     type="time"
                     value={endTimeStr}
                     onChange={(e) => setEndTimeStr(e.target.value)}
                     onBlur={(e) => {
-                      const picked = getDateFromTimeString(e.target.value, new Date(selectedTask.end));
+                      const picked = getDateFromTimeString(
+                        e.target.value,
+                        new Date(selectedTask.end)
+                      );
                       if (picked) {
                         const rounded = roundToNearest15(picked);
                         if (rounded) {
-                          const h = rounded.getHours().toString().padStart(2, "0");
-                          const m = rounded.getMinutes().toString().padStart(2, "0");
+                          const h = rounded.getHours()
+                            .toString()
+                            .padStart(2, "0");
+                          const m = rounded
+                            .getMinutes()
+                            .toString()
+                            .padStart(2, "0");
                           setEndTimeStr(`${h}:${m}`);
                         }
                       }
                     }}
-                    className="w-full rounded-lg bg-neutral-900 border border-neutral-700 p-2 text-white focus:ring-2 focus:ring-sky-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                     required
                   />
-                </label>
+                </div>
 
-                <label className="flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white transition-all duration-200 border-2 border-stone-600 hover:bg-white/10 hover:border-white/30 shadow-md w-[240px]">
-                  <span className="block text-sm text-gray-400 mb-1">Attach Files</span>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileChange}
-                    className="w-full text-sm cursor-pointer text-gray-300"
-                  />
+                {/* Files */}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-2">
+                    Attach Files
+                  </label>
+                  <div
+                    className="w-full h-24 rounded-xl border-2 border-dashed border-zinc-600 flex items-center justify-center flex-col gap-2 bg-zinc-900/50 cursor-pointer hover:border-zinc-500 transition"
+                    onClick={() =>
+                      document.getElementById("sidebar-file-upload").click()
+                    }
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Select files"
+                    onKeyDown={(e) => {
+                      if (e.key === " " || e.key === "Enter")
+                        document.getElementById("sidebar-file-upload").click();
+                    }}
+                  >
+                    <span className="text-zinc-400 text-sm">
+                      Drag or click to select files
+                    </span>
+                    <input
+                      type="file"
+                      id="sidebar-file-upload"
+                      multiple
+                      style={{ display: "none" }}
+                      onChange={handleFileChange}
+                      accept="*"
+                    />
+                  </div>
                   {files && files.length > 0 && (
-                    <p className="mt-1 text-sm text-gray-500">{files.length} file(s) selected</p>
+                    <p className="mt-1 text-sm text-zinc-400">
+                      {files.length} file
+                      {files.length > 1 ? "s" : ""} selected
+                    </p>
                   )}
-                </label>
+                </div>
 
-                {/* Actions */}
-                <div className="flex justify-end space-x-3">
+                {/* Footer Actions */}
+                <div className="flex justify-end space-x-3 pt-4 border-t border-zinc-800">
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="px-2 py-2 rounded-lg bg-neutral-800 text-gray-300 hover:bg-neutral-700 transition"
+                    className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition"
                   >
-                    <Ban />
+                    <Ban size={18} />
                   </button>
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className="px-2 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
+                    className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition"
                   >
-                    <Trash2 />
+                    <Trash2 size={18} />
                   </button>
                   <button
                     type="button"
                     onClick={handleSave}
-                    className="px-2 py-2 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700 transition"
+                    className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition"
                   >
-                    <Save />
+                    <Save size={18} />
                   </button>
                 </div>
               </>
             ) : (
-              <p className="text-gray-500 mt-6">Select a task to edit</p>
+              <p className="text-zinc-500 mt-6">Select a task to edit</p>
             )}
           </div>
         </div>

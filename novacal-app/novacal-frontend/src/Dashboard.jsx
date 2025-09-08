@@ -14,6 +14,7 @@ import {
   Settings,
 } from "lucide-react";
 import { format, isToday, startOfDay, endOfDay } from "date-fns";
+import Card from "./components/DashboardCard";
 
 // Local storage keys
 const LS_TIME_KEY = "focusTimerTimeLeft";
@@ -88,7 +89,6 @@ export default function Dashboard() {
       if (savedTask) setSelectedTask(JSON.parse(savedTask));
       if (savedTime) setTimeLeft(parseInt(savedTime, 10));
 
-      // If previously running, try to resume depending on which mode saved
       if (savedRunning === "true") {
         if (savedMode === "stopwatch" && savedStopwatchStart) {
           const parsedStart = parseInt(savedStopwatchStart, 10);
@@ -468,7 +468,6 @@ export default function Dashboard() {
     }
   };
 
-  // Stats calculations (unchanged)
   const totalFocusedMinutesToday = focusSessions.reduce((acc, s) => {
     const dt = new Date(s.start_time);
     if (isToday(dt)) return acc + s.duration;
@@ -495,32 +494,6 @@ export default function Dashboard() {
   const tasksThisWeek = tasks.length + completedThisWeek > 0 ? tasks.length + completedThisWeek : 1;
   const completionPercent = Math.round((completedThisWeek / tasksThisWeek) * 100);
 
-  // Small Card component (kept visually similar)
-  const Card = ({ icon: Icon, title, value, description, color }) => (
-    <div className={`flex-1 min-w-0 p-6 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md transition-transform hover:scale-[1.025] group relative overflow-hidden`}>
-      <svg
-        className={`absolute -top-5 -left-5 w-32 h-32 z-0 ${color} opacity-20 pointer-events-none select-none`}
-        viewBox="0 0 100 100"
-        fill="none"
-      >
-        <path d="M0 0 H100 A100 100 0 0 1 0 100 V0 Z" fill="currentColor" />
-      </svg>
-      <div className="flex items-center justify-between mb-4 relative z-10">
-        <div className="flex items-center">
-          <span className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${color} bg-white/20 shadow-inner mr-3`}>
-            <Icon className="w-6 h-6 text-white drop-shadow" />
-          </span>
-        </div>
-        <TrendingUp className="w-5 h-5 text-green-400/80" aria-hidden />
-      </div>
-      <div className="relative z-10">
-        <h3 className="text-base text-stone-200 font-semibold mb-1 tracking-tight">{title}</h3>
-        <p className="text-4xl font-extrabold text-white mb-1">{value}</p>
-        <p className="text-xs text-stone-400">{description}</p>
-      </div>
-    </div>
-  );
-
 
   const roundToNearest5 = (mins) => {
     const n = Number(mins) || 0;
@@ -532,7 +505,6 @@ export default function Dashboard() {
     const mins = roundToNearest5(tempMinutes);
     const secs = mins * 60;
     setSessionDuration(secs);
-    // if not running, update timeLeft to new sessionDuration
     if (!isRunning) setTimeLeft(secs);
     setTempMinutes(mins);
     localStorage.setItem(LS_DURATION_KEY, String(secs));
@@ -547,11 +519,6 @@ export default function Dashboard() {
     setTempMinutes((p) => roundToNearest5(Math.max(5, p - 5)));
   };
 
-  // -----------------------
-  // Progress rendering helpers for the SVG ring(s)
-  // -----------------------
-  // For timer mode: single ring (radius 54)
-  // For stopwatch: concentric rings; completed hours are full rings, active hour shows progress
   const renderProgressRings = () => {
     if (mode === "timer") {
       const radius = 54;
@@ -579,16 +546,15 @@ export default function Dashboard() {
       // stopwatch rings
       const elapsed = stopwatchElapsed;
       const completedHours = Math.floor(elapsed / 3600);
-      const rings = Math.max(1, completedHours + 1); // start with 1 ring
+      const rings = Math.max(1, completedHours + 1);
       const baseRadius = 54;
-      const gap = 8; // gap between rings
+      const gap = 8;
       const ringsToRender = [];
       for (let i = 0; i < rings; i++) {
         const radius = baseRadius - i * gap;
-        if (radius <= 8) continue; // avoid too small
+        if (radius <= 8) continue;
         const circumference = 2 * Math.PI * radius;
         if (i < rings - 1) {
-          // completed hour -> full colored ring
           ringsToRender.push(
             <g key={i}>
               <circle cx="60" cy="60" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="8" />
@@ -606,7 +572,6 @@ export default function Dashboard() {
             </g>
           );
         } else {
-          // active hour -> show progress fraction
           const activeSeconds = elapsed % 3600;
           const progress = (activeSeconds / 3600) * circumference;
           const dashOffset = circumference - progress;
@@ -633,9 +598,6 @@ export default function Dashboard() {
     }
   };
 
-  // -----------------------
-  // UI Render
-  // -----------------------
   return (
     <div className="min-h-screen dashboard-background p-6">
       <div className="max-w-7xl mx-auto backdrop-blur-sm rounded-lg shadow-lg border-2 border-white/20 p-6 h-full bg-transparent">

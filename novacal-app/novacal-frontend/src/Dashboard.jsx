@@ -56,17 +56,12 @@ export default function Dashboard() {
   const [animatingTask, setAnimatingTask] = useState(null);
   const [removingSession, setRemovingSession] = useState(null);
 
-  // Settings temp minutes input
   const [tempMinutes, setTempMinutes] = useState(DEFAULT_DURATION_MIN);
 
-  // Refs for timing
-  const timerRef = useRef(null); // interval id
-  const endTsRef = useRef(null); // for countdown timer (ms)
-  const stopwatchStartTsRef = useRef(null); // for stopwatch start timestamp (ms)
+  const timerRef = useRef(null);
+  const endTsRef = useRef(null);
+  const stopwatchStartTsRef = useRef(null);
 
-  // -----------------------
-  // Restore persisted timer & mode on mount (and selectedTask/timeLeft behavior)
-  // -----------------------
   useEffect(() => {
     try {
       const savedTime = localStorage.getItem(LS_TIME_KEY);
@@ -122,12 +117,8 @@ export default function Dashboard() {
     } catch (e) {
       console.error("Error restoring timer state:", e);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // -----------------------
-  // Persist important timer + mode state
-  // -----------------------
   useEffect(() => {
     try {
       localStorage.setItem(LS_TIME_KEY, String(timeLeft));
@@ -148,9 +139,6 @@ export default function Dashboard() {
     }
   }, [timeLeft, isRunning, selectedTask, sessionDuration, mode, stopwatchStartTsRef.current]);
 
-  // -----------------------
-  // Robust ticking for both timer & stopwatch
-  // -----------------------
   useEffect(() => {
     // clear existing
     if (timerRef.current) {
@@ -160,7 +148,6 @@ export default function Dashboard() {
 
     if (isRunning) {
       if (mode === "timer") {
-        // ensure endTsRef is set (if starting from paused state)
         if (!endTsRef.current) {
           endTsRef.current = Date.now() + timeLeft * 1000;
           localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
@@ -176,7 +163,6 @@ export default function Dashboard() {
             endTsRef.current = null;
             localStorage.removeItem(LS_END_TS_KEY);
             setIsRunning(false);
-            // mark session complete (false => not marked completed by user)
             handleCompleteFocus(false);
           }
         };
@@ -206,13 +192,8 @@ export default function Dashboard() {
         timerRef.current = null;
       }
     };
-    // include mode because behavior differs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, mode]);
 
-  // -----------------------
-  // Fetch tasks/sessions/completed tasks (today)
-  // -----------------------
   useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
@@ -282,19 +263,15 @@ export default function Dashboard() {
     return () => controller.abort();
   }, []);
 
-  // -----------------------
-  // Actions
-  // -----------------------
+
   const handleSelectTask = (task) => {
     setSelectedTask(task);
     localStorage.setItem(LS_TASK_KEY, JSON.stringify(task));
   };
 
-  // unified start - depending on mode
   const handleStartFocus = () => {
     if (!selectedTask) return;
     if (mode === "timer") {
-      // If starting from paused, set endTimestamp based on current timeLeft
       endTsRef.current = Date.now() + timeLeft * 1000;
       localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
       setIsRunning(true);
@@ -319,7 +296,6 @@ export default function Dashboard() {
   };
 
   const handlePause = () => {
-    // on pause, compute current timeLeft and clear end timestamp OR store stopwatch elapsed
     if (mode === "timer") {
       if (endTsRef.current) {
         const remaining = Math.max(0, Math.ceil((endTsRef.current - Date.now()) / 1000));
@@ -340,7 +316,6 @@ export default function Dashboard() {
 
   const handleCompleteFocus = useCallback(
     async (isTaskCompleted) => {
-      // Stop timer & clear persisted end timestamp/right away
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -474,11 +449,7 @@ export default function Dashboard() {
     }, 300);
   };
 
-  // -----------------------
-  // Helpers & stats
-  // -----------------------
   const formatTime = (secs) => {
-    // If >= 1 hour, show H:MM:SS; otherwise MM:SS
     if (secs >= 3600) {
       const h = Math.floor(secs / 3600);
       const m = Math.floor((secs % 3600) / 60)
@@ -550,9 +521,7 @@ export default function Dashboard() {
     </div>
   );
 
-  // -----------------------
-  // Settings helpers
-  // -----------------------
+
   const roundToNearest5 = (mins) => {
     const n = Number(mins) || 0;
     const rounded = Math.max(5, Math.round(n / 5) * 5);
@@ -690,21 +659,12 @@ export default function Dashboard() {
                 disabled={!selectedTask}
               >
                 <Timer className="w-4 h-4 mr-2" />
-                Focus Settings
+                Focus Session
               </button>
 
-              {/* Settings (gear) */}
-              <button
-                onClick={() => setShowSettings((s) => !s)}
-                aria-label="Timer settings"
-                title="Timer settings"
-                className="ml-2 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
-              >
-                <Settings className="w-5 h-5 text-white" />
-              </button>
 
               {showSettings && (
-                <div className="absolute right-0 mt-12 w-80 z-40 bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-4 shadow-lg">
+                <div className="absolute top-80 right-20 mt-12 w-80 z-40 bg-black border border-white/20 rounded-lg p-4 shadow-lg text-stone-200">
                   <div className="mb-3">
                     <h3 className="text-sm font-semibold text-white mb-2">Timer duration</h3>
                     <div className="flex items-center gap-2">
@@ -752,7 +712,6 @@ export default function Dashboard() {
                       <button
                         onClick={() => {
                           setMode("stopwatch");
-                          setShowSettings(false);
                         }}
                         className={`px-3 py-1 rounded-md ${mode === "stopwatch" ? "bg-emerald-500 text-white" : "bg-white/10"}`}
                       >
@@ -761,7 +720,6 @@ export default function Dashboard() {
                       <button
                         onClick={() => {
                           setMode("timer");
-                          setShowSettings(false);
                         }}
                         className={`px-3 py-1 rounded-md ${mode === "timer" ? "bg-emerald-500 text-white" : "bg-white/10"}`}
                       >

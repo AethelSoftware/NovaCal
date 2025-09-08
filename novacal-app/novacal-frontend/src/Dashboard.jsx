@@ -11,6 +11,7 @@ import {
   TrendingDown,
   Circle,
   Undo2,
+  Settings,
 } from "lucide-react";
 import { format, isToday, startOfDay, endOfDay } from "date-fns";
 
@@ -19,16 +20,30 @@ const LS_TIME_KEY = "focusTimerTimeLeft";
 const LS_RUNNING_KEY = "focusTimerIsRunning";
 const LS_TASK_KEY = "focusTimerSelectedTask";
 const LS_END_TS_KEY = "focusTimerEndTimestamp";
+const LS_DURATION_KEY = "focusTimerDuration";
+const LS_MODE_KEY = "focusTimerMode";
+const LS_STOPWATCH_START_TS_KEY = "focusTimerStopwatchStart";
+
+const DEFAULT_DURATION_MIN = 45;
+const DEFAULT_DURATION_SECONDS = DEFAULT_DURATION_MIN * 60;
 
 const API_BASE = "http://127.0.0.1:5000/api";
-const INITIAL_TIME = 45 * 60; // 45 minutes in seconds
 
 export default function Dashboard() {
-  // Data & UI state
-  const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
+  // Mode: "timer" (countdown) or "stopwatch" (count up)
+  const [mode, setMode] = useState("timer");
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Session duration (seconds) - configurable by user
+  const [sessionDuration, setSessionDuration] = useState(DEFAULT_DURATION_SECONDS);
+
+  // Timer state
+  const [timeLeft, setTimeLeft] = useState(sessionDuration);
+  const [stopwatchElapsed, setStopwatchElapsed] = useState(0); // seconds
   const [isRunning, setIsRunning] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
+  // Data lists
   const [tasks, setTasks] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [focusSessions, setFocusSessions] = useState([]);
@@ -41,42 +56,78 @@ export default function Dashboard() {
   const [animatingTask, setAnimatingTask] = useState(null);
   const [removingSession, setRemovingSession] = useState(null);
 
-  // Timer refs
-  const timerRef = useRef(null); // holds the interval id
-  const endTsRef = useRef(null); // holds the end timestamp (ms) while running
+  // Settings temp minutes input
+  const [tempMinutes, setTempMinutes] = useState(DEFAULT_DURATION_MIN);
 
-  // Restore persisted state on mount
+  // Refs for timing
+  const timerRef = useRef(null); // interval id
+  const endTsRef = useRef(null); // for countdown timer (ms)
+  const stopwatchStartTsRef = useRef(null); // for stopwatch start timestamp (ms)
+
+  // -----------------------
+  // Restore persisted timer & mode on mount (and selectedTask/timeLeft behavior)
+  // -----------------------
   useEffect(() => {
     try {
       const savedTime = localStorage.getItem(LS_TIME_KEY);
       const savedRunning = localStorage.getItem(LS_RUNNING_KEY);
       const savedTask = localStorage.getItem(LS_TASK_KEY);
       const savedEndTs = localStorage.getItem(LS_END_TS_KEY);
+      const savedDuration = localStorage.getItem(LS_DURATION_KEY);
+      const savedMode = localStorage.getItem(LS_MODE_KEY);
+      const savedStopwatchStart = localStorage.getItem(LS_STOPWATCH_START_TS_KEY);
+
+      if (savedDuration) {
+        const dur = parseInt(savedDuration, 10);
+        if (!Number.isNaN(dur) && dur > 0) {
+          setSessionDuration(dur);
+          setTimeLeft(dur);
+          setTempMinutes(Math.max(1, Math.round(dur / 60)));
+        }
+      }
+
+      if (savedMode === "stopwatch" || savedMode === "timer") {
+        setMode(savedMode);
+      }
 
       if (savedTask) setSelectedTask(JSON.parse(savedTask));
       if (savedTime) setTimeLeft(parseInt(savedTime, 10));
-      if (savedRunning === "true" && savedEndTs) {
-        const parsedEnd = parseInt(savedEndTs, 10);
-        // If end timestamp is still in the future, resume with computed timeLeft
-        const remaining = Math.max(0, Math.ceil((parsedEnd - Date.now()) / 1000));
-        if (remaining > 0) {
-          endTsRef.current = parsedEnd;
-          setTimeLeft(remaining);
+
+      // If previously running, try to resume depending on which mode saved
+      if (savedRunning === "true") {
+        if (savedMode === "stopwatch" && savedStopwatchStart) {
+          const parsedStart = parseInt(savedStopwatchStart, 10);
+          const elapsed = Math.max(0, Math.floor((Date.now() - parsedStart) / 1000));
+          stopwatchStartTsRef.current = parsedStart;
+          setStopwatchElapsed(elapsed);
           setIsRunning(true);
-        } else {
-          // expired while offline/in background
-          localStorage.removeItem(LS_END_TS_KEY);
-          localStorage.setItem(LS_RUNNING_KEY, "false");
-          setTimeLeft(INITIAL_TIME);
-          setIsRunning(false);
+          setMode("stopwatch");
+        } else if (savedEndTs) {
+          const parsedEnd = parseInt(savedEndTs, 10);
+          const remaining = Math.max(0, Math.ceil((parsedEnd - Date.now()) / 1000));
+          if (remaining > 0) {
+            endTsRef.current = parsedEnd;
+            setTimeLeft(remaining);
+            setIsRunning(true);
+            setMode("timer");
+          } else {
+            // expired while offline/in background
+            localStorage.removeItem(LS_END_TS_KEY);
+            localStorage.setItem(LS_RUNNING_KEY, "false");
+            setTimeLeft(sessionDuration);
+            setIsRunning(false);
+          }
         }
       }
     } catch (e) {
       console.error("Error restoring timer state:", e);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist timeLeft, isRunning, selectedTask, endTimestamp
+  // -----------------------
+  // Persist important timer + mode state
+  // -----------------------
   useEffect(() => {
     try {
       localStorage.setItem(LS_TIME_KEY, String(timeLeft));
@@ -86,46 +137,67 @@ export default function Dashboard() {
 
       if (endTsRef.current) localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
       else localStorage.removeItem(LS_END_TS_KEY);
+
+      localStorage.setItem(LS_DURATION_KEY, String(sessionDuration));
+      localStorage.setItem(LS_MODE_KEY, mode);
+
+      if (stopwatchStartTsRef.current) localStorage.setItem(LS_STOPWATCH_START_TS_KEY, String(stopwatchStartTsRef.current));
+      else localStorage.removeItem(LS_STOPWATCH_START_TS_KEY);
     } catch (e) {
       console.error("Failed to persist timer state:", e);
     }
-  }, [timeLeft, isRunning, selectedTask]);
+  }, [timeLeft, isRunning, selectedTask, sessionDuration, mode, stopwatchStartTsRef.current]);
 
-  // Robust timer: compute remaining from endTimestamp (Date.now()) each tick.
+  // -----------------------
+  // Robust ticking for both timer & stopwatch
+  // -----------------------
   useEffect(() => {
-    // clear any existing interval to avoid duplicates
+    // clear existing
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
 
     if (isRunning) {
-      // ensure endTsRef is set (if starting from paused state)
-      if (!endTsRef.current) {
-        endTsRef.current = Date.now() + timeLeft * 1000;
-        localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
-      }
-
-      const tick = () => {
-        const remaining = Math.max(0, Math.ceil((endTsRef.current - Date.now()) / 1000));
-        setTimeLeft(remaining);
-        if (remaining <= 0) {
-          // stop & complete
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-          endTsRef.current = null;
-          localStorage.removeItem(LS_END_TS_KEY);
-          setIsRunning(false);
-          // mark session complete (false => not marked completed by user)
-          // call after state updates (no await required here)
-          handleCompleteFocus(false);
+      if (mode === "timer") {
+        // ensure endTsRef is set (if starting from paused state)
+        if (!endTsRef.current) {
+          endTsRef.current = Date.now() + timeLeft * 1000;
+          localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
         }
-      };
 
-      // update regularly (500ms gives snappy display without hogging CPU)
-      timerRef.current = setInterval(tick, 500);
-      // run immediate tick to avoid 1st-second lag
-      tick();
+        const tick = () => {
+          const remaining = Math.max(0, Math.ceil((endTsRef.current - Date.now()) / 1000));
+          setTimeLeft(remaining);
+          if (remaining <= 0) {
+            // stop & complete
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+            endTsRef.current = null;
+            localStorage.removeItem(LS_END_TS_KEY);
+            setIsRunning(false);
+            // mark session complete (false => not marked completed by user)
+            handleCompleteFocus(false);
+          }
+        };
+
+        timerRef.current = setInterval(tick, 500);
+        tick();
+      } else {
+        // stopwatch mode
+        if (!stopwatchStartTsRef.current) {
+          stopwatchStartTsRef.current = Date.now() - stopwatchElapsed * 1000;
+          localStorage.setItem(LS_STOPWATCH_START_TS_KEY, String(stopwatchStartTsRef.current));
+        }
+
+        const tick = () => {
+          const elapsed = Math.max(0, Math.floor((Date.now() - stopwatchStartTsRef.current) / 1000));
+          setStopwatchElapsed(elapsed);
+        };
+
+        timerRef.current = setInterval(tick, 500);
+        tick();
+      }
     }
 
     return () => {
@@ -134,10 +206,13 @@ export default function Dashboard() {
         timerRef.current = null;
       }
     };
+    // include mode because behavior differs
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRunning]); // only re-run when isRunning changes
+  }, [isRunning, mode]);
 
+  // -----------------------
   // Fetch tasks/sessions/completed tasks (today)
+  // -----------------------
   useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
@@ -164,18 +239,18 @@ export default function Dashboard() {
         const todayEnd = endOfDay(new Date());
 
         const todayTasks = (tasksData || [])
-          .map(t => ({ ...t }))
-          .filter(task => {
+          .map((t) => ({ ...t }))
+          .filter((task) => {
             const s = new Date(task.start);
             return s >= todayStart && s <= todayEnd;
           })
           .sort((a, b) => new Date(a.start) - new Date(b.start));
 
-        const todaySessions = (sessionsData || []).filter(s => isToday(new Date(s.start_time)));
-        const todayCompleted = (completedData || []).filter(c => isToday(new Date(c.completion_date)));
+        const todaySessions = (sessionsData || []).filter((s) => isToday(new Date(s.start_time)));
+        const todayCompleted = (completedData || []).filter((c) => isToday(new Date(c.completion_date)));
 
         // Filter out tasks already completed today
-        const filteredTasks = todayTasks.filter(task => !todayCompleted.some(c => c.task_id === task.id));
+        const filteredTasks = todayTasks.filter((task) => !todayCompleted.some((c) => c.task_id === task.id));
 
         setTasks(filteredTasks);
         setFocusSessions(todaySessions);
@@ -185,7 +260,7 @@ export default function Dashboard() {
         const savedTaskStr = localStorage.getItem(LS_TASK_KEY);
         if (savedTaskStr) {
           const parsed = JSON.parse(savedTaskStr);
-          const found = filteredTasks.find(t => t.id === parsed.id);
+          const found = filteredTasks.find((t) => t.id === parsed.id);
           if (!found) {
             setSelectedTask(null);
             localStorage.removeItem(LS_TASK_KEY);
@@ -207,49 +282,91 @@ export default function Dashboard() {
     return () => controller.abort();
   }, []);
 
-  // ---- Actions ----
+  // -----------------------
+  // Actions
+  // -----------------------
   const handleSelectTask = (task) => {
     setSelectedTask(task);
     localStorage.setItem(LS_TASK_KEY, JSON.stringify(task));
   };
 
+  // unified start - depending on mode
   const handleStartFocus = () => {
     if (!selectedTask) return;
-    // If starting from paused, set endTimestamp based on current timeLeft
-    endTsRef.current = Date.now() + timeLeft * 1000;
-    localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
-    setIsRunning(true);
+    if (mode === "timer") {
+      // If starting from paused, set endTimestamp based on current timeLeft
+      endTsRef.current = Date.now() + timeLeft * 1000;
+      localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
+      setIsRunning(true);
+    } else {
+      // stopwatch
+      stopwatchStartTsRef.current = Date.now() - stopwatchElapsed * 1000;
+      localStorage.setItem(LS_STOPWATCH_START_TS_KEY, String(stopwatchStartTsRef.current));
+      setIsRunning(true);
+    }
+  };
+
+  const resume = () => {
+    if (mode === "timer") {
+      endTsRef.current = Date.now() + timeLeft * 1000;
+      localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
+      setIsRunning(true);
+    } else {
+      stopwatchStartTsRef.current = Date.now() - stopwatchElapsed * 1000;
+      localStorage.setItem(LS_STOPWATCH_START_TS_KEY, String(stopwatchStartTsRef.current));
+      setIsRunning(true);
+    }
   };
 
   const handlePause = () => {
-    // on pause, compute current timeLeft and clear end timestamp
-    if (endTsRef.current) {
-      const remaining = Math.max(0, Math.ceil((endTsRef.current - Date.now()) / 1000));
-      setTimeLeft(remaining);
-      endTsRef.current = null;
-      localStorage.removeItem(LS_END_TS_KEY);
+    // on pause, compute current timeLeft and clear end timestamp OR store stopwatch elapsed
+    if (mode === "timer") {
+      if (endTsRef.current) {
+        const remaining = Math.max(0, Math.ceil((endTsRef.current - Date.now()) / 1000));
+        setTimeLeft(remaining);
+        endTsRef.current = null;
+        localStorage.removeItem(LS_END_TS_KEY);
+      }
+    } else {
+      if (stopwatchStartTsRef.current) {
+        const elapsed = Math.max(0, Math.floor((Date.now() - stopwatchStartTsRef.current) / 1000));
+        setStopwatchElapsed(elapsed);
+        stopwatchStartTsRef.current = null;
+        localStorage.removeItem(LS_STOPWATCH_START_TS_KEY);
+      }
     }
     setIsRunning(false);
   };
 
   const handleCompleteFocus = useCallback(
     async (isTaskCompleted) => {
-      // Stop timer & clear persisted end timestamp right away
+      // Stop timer & clear persisted end timestamp/right away
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
       endTsRef.current = null;
+      stopwatchStartTsRef.current = null;
       localStorage.removeItem(LS_END_TS_KEY);
+      localStorage.removeItem(LS_STOPWATCH_START_TS_KEY);
       setIsRunning(false);
 
-      const elapsedSeconds = INITIAL_TIME - timeLeft;
-      const durationInMinutes = Math.max(0, Math.floor(elapsedSeconds / 60));
+      // compute elapsedSeconds depending on mode
+      let elapsedSeconds = 0;
+      if (mode === "timer") {
+        elapsedSeconds = sessionDuration - timeLeft;
+      } else {
+        elapsedSeconds = stopwatchElapsed;
+      }
 
       if (!selectedTask) {
-        setTimeLeft(INITIAL_TIME);
+        // reset UI but don't call API
+        setTimeLeft(sessionDuration);
+        setStopwatchElapsed(0);
         return;
       }
+
+      const durationInMinutes = Math.max(0, Math.floor(elapsedSeconds / 60));
 
       try {
         const res = await fetch(`${API_BASE}/focus_sessions`, {
@@ -263,7 +380,7 @@ export default function Dashboard() {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const newSession = await res.json();
-        setFocusSessions(prev => [...prev, newSession]);
+        setFocusSessions((prev) => [...prev, newSession]);
 
         if (isTaskCompleted) {
           // move to completed
@@ -272,23 +389,26 @@ export default function Dashboard() {
 
         setSelectedTask(null);
         localStorage.removeItem(LS_TASK_KEY);
-        setTimeLeft(INITIAL_TIME);
+        // reset UI based on mode
+        setTimeLeft(sessionDuration);
+        setStopwatchElapsed(0);
       } catch (e) {
         console.error("Failed to save focus session:", e);
         // still reset UI
         setSelectedTask(null);
         localStorage.removeItem(LS_TASK_KEY);
-        setTimeLeft(INITIAL_TIME);
+        setTimeLeft(sessionDuration);
+        setStopwatchElapsed(0);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [timeLeft, selectedTask]
+    [timeLeft, selectedTask, sessionDuration, mode, stopwatchElapsed]
   );
 
   const handleMoveToCompleted = async (taskId) => {
     setAnimatingTask(taskId);
     setTimeout(async () => {
-      const taskToMove = tasks.find(t => t.id === taskId);
+      const taskToMove = tasks.find((t) => t.id === taskId);
       if (!taskToMove) {
         setAnimatingTask(null);
         return;
@@ -301,8 +421,8 @@ export default function Dashboard() {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const newCompleted = await res.json();
-        setCompletedTasks(prev => [...prev, newCompleted]);
-        setTasks(prev => prev.filter(t => t.id !== taskId));
+        setCompletedTasks((prev) => [...prev, newCompleted]);
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
         if (selectedTask?.id === taskId) {
           setSelectedTask(null);
           localStorage.removeItem(LS_TASK_KEY);
@@ -316,7 +436,7 @@ export default function Dashboard() {
   };
 
   const handleUndoCompletion = async (completedTaskId) => {
-    const completed = completedTasks.find(c => c.id === completedTaskId);
+    const completed = completedTasks.find((c) => c.id === completedTaskId);
     if (!completed) return;
     setUndoingTask(completed.task_id);
     try {
@@ -327,10 +447,10 @@ export default function Dashboard() {
       const allTasksRes = await fetch(`${API_BASE}/tasks`);
       if (!allTasksRes.ok) throw new Error(`HTTP ${allTasksRes.status}`);
       const allTasks = await allTasksRes.json();
-      const undone = allTasks.find(t => t.id === completed.task_id);
+      const undone = allTasks.find((t) => t.id === completed.task_id);
       if (undone) {
-        setTasks(prev => [...prev, undone].sort((a, b) => new Date(a.start) - new Date(b.start)));
-        setCompletedTasks(prev => prev.filter(c => c.id !== completedTaskId));
+        setTasks((prev) => [...prev, undone].sort((a, b) => new Date(a.start) - new Date(b.start)));
+        setCompletedTasks((prev) => prev.filter((c) => c.id !== completedTaskId));
       }
     } catch (e) {
       console.error("Failed to undo completion:", e);
@@ -345,7 +465,7 @@ export default function Dashboard() {
       try {
         const res = await fetch(`${API_BASE}/focus_sessions/${sessionId}`, { method: "DELETE" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setFocusSessions(prev => prev.filter(s => s.id !== sessionId));
+        setFocusSessions((prev) => prev.filter((s) => s.id !== sessionId));
       } catch (e) {
         console.error("Failed to remove session:", e);
       } finally {
@@ -354,17 +474,30 @@ export default function Dashboard() {
     }, 300);
   };
 
-  // ---- Helpers & stats ----
+  // -----------------------
+  // Helpers & stats
+  // -----------------------
   const formatTime = (secs) => {
-    const minutes = Math.floor(secs / 60).toString().padStart(2, "0");
-    const seconds = (secs % 60).toString().padStart(2, "0");
-    return `${minutes}:${seconds}`;
+    // If >= 1 hour, show H:MM:SS; otherwise MM:SS
+    if (secs >= 3600) {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60)
+        .toString()
+        .padStart(2, "0");
+      const s = Math.floor(secs % 60)
+        .toString()
+        .padStart(2, "0");
+      return `${h}:${m}:${s}`;
+    } else {
+      const minutes = Math.floor(secs / 60)
+        .toString()
+        .padStart(2, "0");
+      const seconds = (secs % 60).toString().padStart(2, "0");
+      return `${minutes}:${seconds}`;
+    }
   };
 
-  const circumference = 2 * Math.PI * 54;
-  const progress = ((INITIAL_TIME - timeLeft) / INITIAL_TIME) * circumference;
-  const dashOffset = circumference - progress;
-
+  // Stats calculations (unchanged)
   const totalFocusedMinutesToday = focusSessions.reduce((acc, s) => {
     const dt = new Date(s.start_time);
     if (isToday(dt)) return acc + s.duration;
@@ -378,12 +511,12 @@ export default function Dashboard() {
   const weekAgo = new Date(now);
   weekAgo.setDate(now.getDate() - 6);
 
-  const sessionsThisWeek = focusSessions.filter(s => {
+  const sessionsThisWeek = focusSessions.filter((s) => {
     const dt = new Date(s.start_time);
     return dt >= weekAgo && dt <= now;
   }).length;
 
-  const completedThisWeek = completedTasks.filter(c => {
+  const completedThisWeek = completedTasks.filter((c) => {
     const dt = new Date(c.completion_date);
     return dt >= weekAgo && dt <= now;
   }).length;
@@ -391,7 +524,7 @@ export default function Dashboard() {
   const tasksThisWeek = tasks.length + completedThisWeek > 0 ? tasks.length + completedThisWeek : 1;
   const completionPercent = Math.round((completedThisWeek / tasksThisWeek) * 100);
 
-  // Simple Card component (kept visually similar to original)
+  // Small Card component (kept visually similar)
   const Card = ({ icon: Icon, title, value, description, color }) => (
     <div className={`flex-1 min-w-0 p-6 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md transition-transform hover:scale-[1.025] group relative overflow-hidden`}>
       <svg
@@ -417,7 +550,123 @@ export default function Dashboard() {
     </div>
   );
 
-  // ---- UI render ----
+  // -----------------------
+  // Settings helpers
+  // -----------------------
+  const roundToNearest5 = (mins) => {
+    const n = Number(mins) || 0;
+    const rounded = Math.max(5, Math.round(n / 5) * 5);
+    return rounded;
+  };
+
+  const applyDurationFromSettings = () => {
+    const mins = roundToNearest5(tempMinutes);
+    const secs = mins * 60;
+    setSessionDuration(secs);
+    // if not running, update timeLeft to new sessionDuration
+    if (!isRunning) setTimeLeft(secs);
+    setTempMinutes(mins);
+    localStorage.setItem(LS_DURATION_KEY, String(secs));
+    setMode("timer");
+    setShowSettings(false);
+  };
+
+  const incSettingsMinutes = () => {
+    setTempMinutes((p) => roundToNearest5(p + 5));
+  };
+  const decSettingsMinutes = () => {
+    setTempMinutes((p) => roundToNearest5(Math.max(5, p - 5)));
+  };
+
+  // -----------------------
+  // Progress rendering helpers for the SVG ring(s)
+  // -----------------------
+  // For timer mode: single ring (radius 54)
+  // For stopwatch: concentric rings; completed hours are full rings, active hour shows progress
+  const renderProgressRings = () => {
+    if (mode === "timer") {
+      const radius = 54;
+      const circumference = 2 * Math.PI * radius;
+      const progress = sessionDuration > 0 ? ((sessionDuration - timeLeft) / sessionDuration) * circumference : 0;
+      const dashOffset = circumference - progress;
+      return (
+        <>
+          <circle cx="60" cy="60" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="10" />
+          <circle
+            cx="60"
+            cy="60"
+            r={radius}
+            fill="none"
+            stroke="#14b789"
+            strokeWidth="10"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dashoffset 0.3s linear" }}
+          />
+        </>
+      );
+    } else {
+      // stopwatch rings
+      const elapsed = stopwatchElapsed;
+      const completedHours = Math.floor(elapsed / 3600);
+      const rings = Math.max(1, completedHours + 1); // start with 1 ring
+      const baseRadius = 54;
+      const gap = 8; // gap between rings
+      const ringsToRender = [];
+      for (let i = 0; i < rings; i++) {
+        const radius = baseRadius - i * gap;
+        if (radius <= 8) continue; // avoid too small
+        const circumference = 2 * Math.PI * radius;
+        if (i < rings - 1) {
+          // completed hour -> full colored ring
+          ringsToRender.push(
+            <g key={i}>
+              <circle cx="60" cy="60" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="8" />
+              <circle
+                cx="60"
+                cy="60"
+                r={radius}
+                fill="none"
+                stroke="#14b789"
+                strokeWidth="8"
+                strokeDasharray={circumference}
+                strokeDashoffset={0}
+                strokeLinecap="round"
+              />
+            </g>
+          );
+        } else {
+          // active hour -> show progress fraction
+          const activeSeconds = elapsed % 3600;
+          const progress = (activeSeconds / 3600) * circumference;
+          const dashOffset = circumference - progress;
+          ringsToRender.push(
+            <g key={i}>
+              <circle cx="60" cy="60" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="8" />
+              <circle
+                cx="60"
+                cy="60"
+                r={radius}
+                fill="none"
+                stroke="#14b789"
+                strokeWidth="8"
+                strokeDasharray={circumference}
+                strokeDashoffset={dashOffset}
+                strokeLinecap="round"
+                style={{ transition: "stroke-dashoffset 0.3s linear" }}
+              />
+            </g>
+          );
+        }
+      }
+      return ringsToRender;
+    }
+  };
+
+  // -----------------------
+  // UI Render
+  // -----------------------
   return (
     <div className="min-h-screen dashboard-background p-6">
       <div className="max-w-7xl mx-auto backdrop-blur-sm rounded-lg shadow-lg border-2 border-white/20 p-6 h-full bg-transparent">
@@ -425,25 +674,107 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-white">
-                Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}
+                Good {new Date().getHours() < 12 ? "Morning" : new Date().getHours() < 18 ? "Afternoon" : "Evening"}
               </h1>
               <p className="text-stone-400 mt-2 text-lg">{format(new Date(), "EEEE, MMMM d, yyyy")}</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center relative">
               <button className="flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white transition-all duration-200 border-2 border-stone-600 hover:bg-white/10 hover:border-white/30 shadow-md">
                 <Target className="w-4 h-4 mr-2" />
                 Prioritize
               </button>
+
               <button
                 className="flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white transition duration-200 shadow-md bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
-                onClick={handleStartFocus}
+                onClick={() => handleStartFocus()}
                 disabled={!selectedTask}
               >
                 <Timer className="w-4 h-4 mr-2" />
-                Start Focus
+                Focus Settings
               </button>
+
+              {/* Settings (gear) */}
+              <button
+                onClick={() => setShowSettings((s) => !s)}
+                aria-label="Timer settings"
+                title="Timer settings"
+                className="ml-2 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
+              >
+                <Settings className="w-5 h-5 text-white" />
+              </button>
+
+              {showSettings && (
+                <div className="absolute right-0 mt-12 w-80 z-40 bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-4 shadow-lg">
+                  <div className="mb-3">
+                    <h3 className="text-sm font-semibold text-white mb-2">Timer duration</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={decSettingsMinutes}
+                        className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20"
+                        aria-label="Decrease minutes"
+                      >
+                        -
+                      </button>
+                      <input
+                        className="w-20 text-center rounded-md p-2 bg-white/5 text-white"
+                        value={tempMinutes}
+                        onChange={(e) => setTempMinutes(e.target.value)}
+                        onBlur={(e) => setTempMinutes(roundToNearest5(e.target.value))}
+                        inputMode="numeric"
+                      />
+                      <button
+                        onClick={incSettingsMinutes}
+                        className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20"
+                        aria-label="Increase minutes"
+                      >
+                        +
+                      </button>
+                      <div className="text-sm text-stone-300 ml-2">{roundToNearest5(tempMinutes)} min (rounded)</div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={applyDurationFromSettings} className="px-3 py-1 rounded-md bg-emerald-500 text-white">
+                        Apply
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTempMinutes(Math.round(sessionDuration / 60));
+                        }}
+                        className="px-3 py-1 rounded-md bg-white/10"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/5 pt-3">
+                    <h3 className="text-sm font-semibold text-white mb-2">Mode</h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setMode("stopwatch");
+                          setShowSettings(false);
+                        }}
+                        className={`px-3 py-1 rounded-md ${mode === "stopwatch" ? "bg-emerald-500 text-white" : "bg-white/10"}`}
+                      >
+                        Stopwatch
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMode("timer");
+                          setShowSettings(false);
+                        }}
+                        className={`px-3 py-1 rounded-md ${mode === "timer" ? "bg-emerald-500 text-white" : "bg-white/10"}`}
+                      >
+                        Timer
+                      </button>
+                    </div>
+                    <p className="text-xs text-stone-300 mt-2">Stopwatch adds a ring every completed hour; timer uses the duration above.</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             <Card icon={Clock} title="Total Focused Time" value={totalHoursFormatted} description="Today" color="text-sky-400" />
             <Card icon={Target} title="Focus Sessions" value={sessionsThisWeek} description="This week" color="text-purple-400" />
@@ -519,89 +850,128 @@ export default function Dashboard() {
 
           {/* Focus Timer Section */}
           <div className="flex flex-col items-center p-8 bg-white/10 rounded-2xl shadow-lg backdrop-blur-md">
-            <div className="flex items-center w-full mb-6">
+            <div className="flex items-center justify-between w-full mb-6">
               <Timer className="w-6 h-6 mr-3 text-stone-700 dark:text-white" />
-              <h2 className="text-2xl font-semibold text-stone-900 dark:text-white">Focus Session</h2>
+              <h2 className="text-2xl font-semibold text-stone-900 dark:text-white">Focus Sess</h2>
+              <button
+                onClick={() => setShowSettings((s) => !s)}
+                aria-label="Timer settings"
+                title="Timer settings"
+                className="ml-2 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
+              >
+                <Settings className="w-5 h-5 text-white" />
+              </button>
             </div>
             <div className="relative w-40 h-40 flex items-center justify-center mx-auto mb-6">
-              <svg className="w-full h-full" viewBox="0 0 120 120">
-                {/* Background ring */}
-                <circle cx="60" cy="60" r="54" fill="none" stroke="#e5e7eb" strokeWidth="10" />
-                {/* Progress ring */}
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="54"
-                  fill="none"
-                  stroke="#14b789"
-                  strokeWidth="10"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={dashOffset}
-                  strokeLinecap="round"
-                  style={{ transition: "stroke-dashoffset 0.3s linear" }}
-                />
+              <svg className="w-full h-full" viewBox="0 0 120 120" aria-hidden>
+                {renderProgressRings()}
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span
-                  className="text-3xl font-extrabold text-stone-900 dark:text-white"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  {formatTime(timeLeft)}
+                <span className="text-3xl font-extrabold text-stone-900 dark:text-white" aria-live="polite" aria-atomic="true">
+                  {mode === "timer" ? formatTime(timeLeft) : formatTime(stopwatchElapsed)}
                 </span>
               </div>
             </div>
             <div className="mb-3 text-center">
-              <div className="text-lg font-semibold text-stone-700 dark:text-white">{selectedTask ? selectedTask.name : "Focus Time"}</div>
-              <div className="text-sm text-stone-500 dark:text-stone-300">{selectedTask ? "45 minutes of deep work" : "Select a task to begin"}</div>
+              <div className="text-lg font-semibold text-stone-700 dark:text-white">{selectedTask ? selectedTask.name : mode === "stopwatch" ? "Stopwatch" : "Focus Time"}</div>
+              <div className="text-sm text-stone-500 dark:text-stone-300">
+                {selectedTask
+                  ? mode === "timer"
+                    ? `${Math.round(sessionDuration / 60)} minutes of deep work`
+                    : `Stopwatch — ${stopwatchElapsed >= 3600 ? `${Math.floor(stopwatchElapsed / 3600)}h ` : ""}${formatTime(stopwatchElapsed)}`
+                  : "Select a task to begin"}
+              </div>
             </div>
+
             <div className="flex justify-center gap-4 mt-2 mb-3">
-              {!isRunning && timeLeft === INITIAL_TIME ? (
-                <button
-                  onClick={handleStartFocus}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
-                  aria-label="Start timer"
-                  disabled={!selectedTask}
-                >
-                  <Play className="w-6 h-6" />
-                </button>
-              ) : isRunning ? (
-                <button
-                  onClick={handlePause}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
-                  aria-label="Pause timer"
-                >
-                  <Square className="w-6 h-6" />
-                </button>
-              ) : (
-                <>
+              {mode === "timer" ? (
+                // Timer buttons (behavior adapted to sessionDuration)
+                !isRunning && timeLeft === sessionDuration ? (
                   <button
-                    onClick={() => {
-                      // resume by setting endTsRef and setting isRunning true
-                      endTsRef.current = Date.now() + timeLeft * 1000;
-                      localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
-                      setIsRunning(true);
-                    }}
+                    onClick={handleStartFocus}
                     className="bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
-                    aria-label="Resume timer"
+                    aria-label="Start timer"
+                    disabled={!selectedTask}
                   >
                     <Play className="w-6 h-6" />
                   </button>
+                ) : isRunning ? (
                   <button
-                    onClick={() => handleCompleteFocus(false)}
-                    className="bg-white border border-stone-300 dark:bg-stone-900/30 dark:border-stone-600 text-stone-600 dark:text-white p-4 rounded-lg shadow-md focus:outline-none"
-                    aria-label="End session without completion"
+                    onClick={handlePause}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
+                    aria-label="Pause timer"
                   >
-                    <AlertCircle className="w-6 h-6" />
+                    <Square className="w-6 h-6" />
                   </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={resume}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
+                      aria-label="Resume timer"
+                    >
+                      <Play className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => handleCompleteFocus(false)}
+                      className="bg-white border border-stone-300 dark:bg-stone-900/30 dark:border-stone-600 text-stone-600 dark:text-white p-4 rounded-lg shadow-md focus:outline-none"
+                      aria-label="End session without completion"
+                    >
+                      <AlertCircle className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => handleCompleteFocus(true)}
+                      className="bg-white border border-stone-300 dark:bg-stone-900/30 dark:border-stone-600 text-stone-600 dark:text-white p-4 rounded-lg shadow-md focus:outline-none"
+                      aria-label="Complete task"
+                    >
+                      <CheckCircle2 className="w-6 h-6" />
+                    </button>
+                  </>
+                )
+              ) : (
+                // Stopwatch buttons
+                !isRunning && stopwatchElapsed === 0 ? (
                   <button
-                    onClick={() => handleCompleteFocus(true)}
-                    className="bg-white border border-stone-300 dark:bg-stone-900/30 dark:border-stone-600 text-stone-600 dark:text-white p-4 rounded-lg shadow-md focus:outline-none"
-                    aria-label="Complete task"
+                    onClick={handleStartFocus}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
+                    aria-label="Start stopwatch"
+                    disabled={!selectedTask}
                   >
-                    <CheckCircle2 className="w-6 h-6" />
+                    <Play className="w-6 h-6" />
                   </button>
-                </>
+                ) : isRunning ? (
+                  <button
+                    onClick={handlePause}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
+                    aria-label="Pause stopwatch"
+                  >
+                    <Square className="w-6 h-6" />
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={resume}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-lg shadow-md focus:outline-none"
+                      aria-label="Resume stopwatch"
+                    >
+                      <Play className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => handleCompleteFocus(false)}
+                      className="bg-white border border-stone-300 dark:bg-stone-900/30 dark:border-stone-600 text-stone-600 dark:text-white p-4 rounded-lg shadow-md focus:outline-none"
+                      aria-label="End stopwatch without completion"
+                    >
+                      <AlertCircle className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => handleCompleteFocus(true)}
+                      className="bg-white border border-stone-300 dark:bg-stone-900/30 dark:border-stone-600 text-stone-600 dark:text-white p-4 rounded-lg shadow-md focus:outline-none"
+                      aria-label="Complete task"
+                    >
+                      <CheckCircle2 className="w-6 h-6" />
+                    </button>
+                  </>
+                )
               )}
             </div>
           </div>
@@ -646,24 +1016,14 @@ export default function Dashboard() {
                       >
                         <div className="flex-1 min-w-0 pr-4 flex items-center">
                           <span className="text-lg mr-2">
-                            {session.task_completed ? (
-                              <CheckCircle2 className="text-emerald-400 w-4 h-4" />
-                            ) : (
-                              <AlertCircle className="text-yellow-400 w-4 h-4" />
-                            )}
+                            {session.task_completed ? <CheckCircle2 className="text-emerald-400 w-4 h-4" /> : <AlertCircle className="text-yellow-400 w-4 h-4" />}
                           </span>
                           <div>
                             <p className="font-semibold text-white truncate text-sm">{session.task_name}</p>
-                            <p className="text-xs text-stone-400">
-                              {session.duration} minutes of focus at {format(new Date(session.start_time), "p")}
-                            </p>
+                            <p className="text-xs text-stone-400">{session.duration} minutes of focus at {format(new Date(session.start_time), "p")}</p>
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleRemoveSession(session.id)}
-                          className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors"
-                          aria-label="Remove session"
-                        >
+                        <button onClick={() => handleRemoveSession(session.id)} className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors" aria-label="Remove session">
                           <TrendingDown className="w-5 h-5" />
                         </button>
                       </div>
@@ -698,15 +1058,10 @@ export default function Dashboard() {
                           </span>
                           <div>
                             <p className="font-semibold text-white truncate text-sm">{task.task_name}</p>
-                            <p className="text-xs text-stone-400">
-                              Completed at {format(new Date(task.completion_date), "p")}
-                            </p>
+                            <p className="text-xs text-stone-400">Completed at {format(new Date(task.completion_date), "p")}</p>
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleUndoCompletion(task.id)}
-                          className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors"
-                        >
+                        <button onClick={() => handleUndoCompletion(task.id)} className="flex-shrink-0 p-2 text-stone-400 hover:text-white transition-colors">
                           <Undo2 className="w-5 h-5" />
                         </button>
                       </div>
@@ -729,4 +1084,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

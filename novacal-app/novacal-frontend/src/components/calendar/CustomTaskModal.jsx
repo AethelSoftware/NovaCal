@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { format, addMinutes, differenceInMinutes } from "date-fns";
 import { X, ZapOff, Zap, AlertTriangle, ArrowRight } from "lucide-react";
-import { roundToNearest15 } from "../utils/calendarUtils";
+import { roundToNearest15 } from "../../utils/calendarUtils";
 
 export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
   const [name, setName] = useState("");

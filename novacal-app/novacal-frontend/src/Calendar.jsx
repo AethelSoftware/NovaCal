@@ -28,10 +28,10 @@ import {
   toLocalISOString,
 } from "./utils/calendarUtils";
 
-import CreateTaskModal from "./components/CustomTaskModal";
-import Modal from "./components/SimpleModal";
-import CalendarSidebar from "./components/CalendarSidebar";
-import Header from "./components/CalendarHeader";
+import CreateTaskModal from "./components/calendar/CustomTaskModal";
+import Modal from "./components/calendar/SimpleModal";
+import CalendarSidebar from "./components/calendar/CalendarSidebar";
+import Header from "./components/calendar/CalendarHeader";
 
 // ===== Constants =====
 const GRID_SLOT_HEIGHT_PX = 16;

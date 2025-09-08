@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { toLocalISOString } from "../utils/calendarUtils";
+import { toLocalISOString } from "../../utils/calendarUtils";
 import { X } from "lucide-react";
 
 export default function Modal({

@@ -14,7 +14,8 @@ import {
   Settings,
 } from "lucide-react";
 import { format, isToday, startOfDay, endOfDay } from "date-fns";
-import Card from "./components/DashboardCard";
+import Card from "./components/dashboard/DashboardCard";
+import ProgressRings from "./components/dashboard/ProgressRings";
 
 // Local storage keys
 const LS_TIME_KEY = "focusTimerTimeLeft";
@@ -519,84 +520,7 @@ export default function Dashboard() {
     setTempMinutes((p) => roundToNearest5(Math.max(5, p - 5)));
   };
 
-  const renderProgressRings = () => {
-    if (mode === "timer") {
-      const radius = 54;
-      const circumference = 2 * Math.PI * radius;
-      const progress = sessionDuration > 0 ? ((sessionDuration - timeLeft) / sessionDuration) * circumference : 0;
-      const dashOffset = circumference - progress;
-      return (
-        <>
-          <circle cx="60" cy="60" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="10" />
-          <circle
-            cx="60"
-            cy="60"
-            r={radius}
-            fill="none"
-            stroke="#14b789"
-            strokeWidth="10"
-            strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
-            strokeLinecap="round"
-            style={{ transition: "stroke-dashoffset 0.3s linear" }}
-          />
-        </>
-      );
-    } else {
-      // stopwatch rings
-      const elapsed = stopwatchElapsed;
-      const completedHours = Math.floor(elapsed / 3600);
-      const rings = Math.max(1, completedHours + 1);
-      const baseRadius = 54;
-      const gap = 8;
-      const ringsToRender = [];
-      for (let i = 0; i < rings; i++) {
-        const radius = baseRadius - i * gap;
-        if (radius <= 8) continue;
-        const circumference = 2 * Math.PI * radius;
-        if (i < rings - 1) {
-          ringsToRender.push(
-            <g key={i}>
-              <circle cx="60" cy="60" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="8" />
-              <circle
-                cx="60"
-                cy="60"
-                r={radius}
-                fill="none"
-                stroke="#14b789"
-                strokeWidth="8"
-                strokeDasharray={circumference}
-                strokeDashoffset={0}
-                strokeLinecap="round"
-              />
-            </g>
-          );
-        } else {
-          const activeSeconds = elapsed % 3600;
-          const progress = (activeSeconds / 3600) * circumference;
-          const dashOffset = circumference - progress;
-          ringsToRender.push(
-            <g key={i}>
-              <circle cx="60" cy="60" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="8" />
-              <circle
-                cx="60"
-                cy="60"
-                r={radius}
-                fill="none"
-                stroke="#14b789"
-                strokeWidth="8"
-                strokeDasharray={circumference}
-                strokeDashoffset={dashOffset}
-                strokeLinecap="round"
-                style={{ transition: "stroke-dashoffset 0.3s linear" }}
-              />
-            </g>
-          );
-        }
-      }
-      return ringsToRender;
-    }
-  };
+
 
   return (
     <div className="min-h-screen dashboard-background p-6">
@@ -783,9 +707,14 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="relative w-40 h-40 flex items-center justify-center mx-auto mb-6">
-              <svg className="w-full h-full" viewBox="0 0 120 120" aria-hidden>
-                {renderProgressRings()}
-              </svg>
+            <svg className="w-full h-full" viewBox="0 0 120 120" aria-hidden>
+              <ProgressRings
+                mode={mode}
+                sessionDuration={sessionDuration}
+                timeLeft={timeLeft}
+                stopwatchElapsed={stopwatchElapsed}
+              />
+            </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-3xl font-extrabold text-stone-900 dark:text-white" aria-live="polite" aria-atomic="true">
                   {mode === "timer" ? formatTime(timeLeft) : formatTime(stopwatchElapsed)}

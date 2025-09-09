@@ -32,6 +32,8 @@ import CreateTaskModal from "./components/calendar/CustomTaskModal";
 import Modal from "./components/calendar/SimpleModal";
 import CalendarSidebar from "./components/calendar/CalendarSidebar";
 import Header from "./components/calendar/CalendarHeader";
+import TimeGutter from "./components/calendar/TimeGutter";
+import DayColumn from "./components/calendar/DayColumn";
 
 // ===== Constants =====
 const GRID_SLOT_HEIGHT_PX = 16;
@@ -391,297 +393,6 @@ export default function CalendarPage() {
     resizeActive,
   ]);
 
-  const TimeGutter = () => {
-    const minutes = minutesSinceStartOfDay(now);
-    const nowTop = pxFromMinutes(minutes);
-    return (
-      <div
-        className="sticky left-0 top-0 z-30 border-r bg-slate-950"
-        style={{
-          borderColor: colors.border,
-          gridRow: "1 / -1",
-        }}
-      >
-        <div
-          className="h-16 flex items-center justify-center text-[10px] font-semibold border-b"
-          style={{ color: colors.timeLabel, borderColor: colors.border }}
-        >
-          Time
-        </div>
-        {Array.from({ length: HOURS_IN_DAY }).map((_, hour) => (
-          <div
-            key={hour}
-            className="relative border-t flex items-start justify-center select-none"
-            style={{
-              height: GRID_SLOT_HEIGHT_PX * SLOTS_PER_HOUR,
-              borderColor: colors.border,
-            }}
-          >
-            <span
-              className="absolute -top-1 text-[10px] font-semibold"
-              style={{ color: colors.timeLabel }}
-            >
-              {format(new Date().setHours(hour, 0, 0, 0), "ha")}
-            </span>
-          </div>
-        ))}
-        {daysToShow.some((d) => isEqual(startOfDay(d), startOfDay(now))) && (
-          <div
-            className="absolute left-0 right-0 pointer-events-none"
-            style={{ top: HEADER_HEIGHT + nowTop }}
-          >
-            <div className="flex items-center gap-2 pl-2">
-              <span
-                className="inline-block w-2 h-2 rounded-full"
-                style={{ background: colors.now }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  function DayColumn({ date }) {
-    const dayKey = +startOfDay(date);
-    const dayTasks = tasksByDay.get(dayKey) || [];
-
-    const prepared = useMemo(
-      () =>
-        dayTasks.map((t) => ({
-          ...t,
-          start: new Date(t.start),
-          end: new Date(t.end),
-        })),
-      [dayTasks]
-    );
-
-    const layouts = useMemo(() => layoutEventsForDay(prepared), [prepared]);
-
-    const onMouseMove = (e) => {
-      const snapped = getSnappedSlotDate(e.clientY, calendarRef.current, date);
-      setHoverTime(snapped);
-      const rect = calendarRef.current?.getBoundingClientRect();
-      setHoverPos({ x: e.clientX - (rect?.left || 0), y: e.clientY - (rect?.top || 0) });
-      if (isSelecting) setSelectEnd(snapped);
-    };
-
-    const onMouseDown = (e) => {
-      if (e.button !== 0) return;
-      const snapped = getSnappedSlotDate(e.clientY, calendarRef.current, date);
-      setIsSelecting(true);
-      setSelectStart(snapped);
-      setSelectEnd(snapped);
-    };
-
-    const onMouseLeave = () => setHoverTime(null);
-
-    const isToday = isEqual(startOfDay(date), startOfDay(now));
-    const nowTop = pxFromMinutes(minutesSinceStartOfDay(now));
-
-    return (
-      <div
-        className="calendar-day relative flex flex-col border-r"
-        style={{ backgroundColor: colors.background, borderColor: colors.border }}
-        onMouseMove={onMouseMove}
-        onMouseDown={onMouseDown}
-        onMouseLeave={onMouseLeave}
-      >
-        {/* Header */}
-        <div
-          className="sticky top-0 z-40 border-b flex flex-col items-center justify-center text-center"
-          style={{
-            height: HEADER_HEIGHT,
-            backgroundColor: colors.headerBg,
-            borderColor: colors.border,
-            color: colors.dayLabel,
-            userSelect: "none",
-          }}
-        >
-          <span className="uppercase text-xs tracking-wider">
-            {format(date, "EEE")}
-          </span>
-          <span className={`mt-1 text-lg font-bold ${isToday ? "text-white" : "text-slate-100"}`}>
-            {format(date, "MMM d")}
-          </span>
-        </div>
-        {/* Grid */}
-        <div className="relative flex-grow select-none">
-          {Array.from({ length: HOURS_IN_DAY * SLOTS_PER_HOUR }).map((_, i) => (
-            <div
-              key={i}
-              className="border-t"
-              style={{ height: GRID_SLOT_HEIGHT_PX, borderColor: colors.border }}
-            />
-          ))}
-          {isToday && (
-            <div
-              className="absolute left-0 right-0 pointer-events-none"
-              style={{
-                top: 0,
-                height: nowTop,
-                background: colors.pastTint,
-              }}
-            />
-          )}
-          {isToday && (
-            <div
-              className="absolute left-0 right-0 z-30 pointer-events-none"
-              style={{ top: nowTop }}
-            >
-              <div className="h-0.5" style={{ background: colors.now }} />
-            </div>
-          )}
-          {hoverTime && isEqual(startOfDay(hoverTime), startOfDay(date)) && (
-            <div
-              className="absolute left-0 right-0 z-10"
-              style={{
-                top: pxFromMinutes(minutesSinceStartOfDay(hoverTime)),
-                height: GRID_SLOT_HEIGHT_PX,
-                background: colors.hoveredSlot,
-                pointerEvents: "none",
-              }}
-            />
-          )}
-          {hoverTime && (
-            <div
-              className="absolute z-40 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 border border-slate-600 shadow"
-              style={{
-                left: clamp(hoverPos.x + 8, 0, 9999),
-                top: clamp(hoverPos.y - 12, 0, 9999),
-              }}
-            >
-              {format(hoverTime, "p")}
-            </div>
-          )}
-          {isSelecting &&
-            selectStart &&
-            selectEnd &&
-            isEqual(startOfDay(selectStart), startOfDay(date)) &&
-            (() => {
-              const [s, e] = isAfter(selectStart, selectEnd)
-                ? [selectEnd, selectStart]
-                : [selectStart, selectEnd];
-              const top = pxFromMinutes(minutesSinceStartOfDay(s));
-              const height = pxFromMinutes(
-                differenceInMinutes(addMinutes(e, GRID_MINUTES_PER_SLOT), s)
-              );
-              return (
-                <div
-                  className="absolute left-1 right-1 rounded-md"
-                  style={{
-                    top,
-                    height,
-                    background: colors.selectedSlot,
-                    outline: `1px dashed ${colors.taskBorder}`,
-                  }}
-                />
-              );
-            })()}
-          {prepared.map((task) => {
-            const start = task.start;
-            const end = task.end;
-            const top = pxFromMinutes(minutesSinceStartOfDay(start));
-            const height = pxFromMinutes(differenceInMinutes(end, start));
-            const lay = layouts.get(task.id) || { leftPct: 0, widthPct: 100 };
-            const left = `calc(${lay.leftPct}% + 2px)`;
-            const width = `calc(${lay.widthPct}% - 4px)`;
-            const showTime = height >= 40;
-            const showDescription = height >= 64;
-            const isPastTask = isToday && end <= now;
-
-            return (
-              <div
-                key={task.id}
-                className="absolute z-20 rounded-md text-white p-1.5 shadow-lg cursor-pointer bg-gradient-to-b from-teal-700 to-teal-800"
-                style={{
-                  top,
-                  height,
-                  left,
-                  width,
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-                  overflow: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                  userSelect: "none",
-                }}
-                title={`${task.name}: ${format(start, "p")} – ${format(end, "p")}`}
-                onMouseDown={(e) => {
-                  if (e.button !== 0) return;
-                  e.stopPropagation();
-                  dragMovedRef.current = false;
-                  setDraggingTaskId(task.id);
-                  setDragStartY(e.clientY);
-                  setDragOriginalStart(start);
-                  setDragOriginalEnd(end);
-                  setDragActive(false);
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Only open sidebar if no dragging moved
-                  if (!dragMovedRef.current && !dragActive) {
-                    setSelectedTask(task);
-                    setSidebarInitialTab("tasks");
-                    setSidebarOpen(true);
-                  }
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setSelectedTask(task);
-                  setSidebarInitialTab("tasks");
-                  setSidebarOpen(true);
-                }}
-              >
-                {isPastTask && (
-                  <div className="absolute inset-0 bg-black/30 pointer-events-none" />
-                )}
-                <div className="truncate font-bold leading-tight text-[12px] relative z-10">
-                  {task.name}
-                </div>
-                {showTime && (
-                  <div className="text-[11px] opacity-90 font-medium relative z-10">
-                    {format(start, "p")} – {format(end, "p")}
-                  </div>
-                )}
-                {showDescription && task.description && (
-                  <div className="text-[10px] italic opacity-80 truncate relative z-10">
-                    {task.description}
-                  </div>
-                )}
-                <div
-                  className="absolute left-0 right-0 h-1.5 cursor-ns-resize opacity-70"
-                  style={{ top: -1, background: "transparent" }}
-                  onMouseDown={(e) => {
-                    setResizingTaskId(task.id);
-                    setResizeEdge("top");
-                    setResizeStartY(e.clientY);
-                    setResizeOriginalStart(start);
-                    setResizeOriginalEnd(end);
-                    setResizeActive(false);
-                  }}
-                />
-                <div
-                  className="absolute left-0 right-0 h-2 cursor-ns-resize opacity-70"
-                  style={{ bottom: -1, background: "transparent" }}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    setResizingTaskId(task.id);
-                    setResizeEdge("bottom");
-                    setResizeStartY(e.clientY);
-                    setResizeOriginalStart(start);
-                    setResizeOriginalEnd(end);
-                    setResizeActive(false);
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
   const finishSelection = useCallback(() => {
     if (!isSelecting || !selectStart || !selectEnd) return;
     let [start, end] = isAfter(selectStart, selectEnd)
@@ -751,9 +462,61 @@ export default function CalendarPage() {
             boxSizing: "border-box",
           }}
         >
-          <TimeGutter />
+          <TimeGutter
+            now={now}
+            colors={colors}
+            HOURS_IN_DAY={HOURS_IN_DAY}
+            SLOTS_PER_HOUR={SLOTS_PER_HOUR}
+            GRID_SLOT_HEIGHT_PX={GRID_SLOT_HEIGHT_PX}
+            HEADER_HEIGHT={HEADER_HEIGHT}
+            pxFromMinutes={pxFromMinutes}
+            minutesSinceStartOfDay={minutesSinceStartOfDay}
+            daysToShow={daysToShow}
+          />
           {daysToShow.map((date) => (
-            <DayColumn key={+date} date={date} />
+            <DayColumn
+              date={date}
+              now={now}
+              tasksByDay={tasksByDay}
+              layoutEventsForDay={layoutEventsForDay}
+              isSelecting={isSelecting}
+              selectStart={selectStart}
+              selectEnd={selectEnd}
+              hoverTime={hoverTime}
+              hoverPos={hoverPos}
+              calendarRef={calendarRef}
+              setIsSelecting={setIsSelecting}
+              setSelectStart={setSelectStart}
+              setSelectEnd={setSelectEnd}
+              setHoverTime={setHoverTime}
+              setHoverPos={setHoverPos}
+              setDraggingTaskId={setDraggingTaskId}
+              setDragStartY={setDragStartY}
+              setDragOriginalStart={setDragOriginalStart}
+              setDragOriginalEnd={setDragOriginalEnd}
+              setDragActive={setDragActive}
+              dragMovedRef={dragMovedRef}
+              dragActive={dragActive}
+              setSelectedTask={setSelectedTask}
+              setSidebarInitialTab={setSidebarInitialTab}
+              setSidebarOpen={setSidebarOpen}
+              setResizingTaskId={setResizingTaskId}
+              setResizeEdge={setResizeEdge}
+              setResizeStartY={setResizeStartY}
+              setResizeOriginalStart={setResizeOriginalStart}
+              setResizeOriginalEnd={setResizeOriginalEnd}
+              setResizeActive={setResizeActive}
+              HOURS_IN_DAY={HOURS_IN_DAY}
+              SLOTS_PER_HOUR={SLOTS_PER_HOUR}
+              GRID_SLOT_HEIGHT_PX={GRID_SLOT_HEIGHT_PX}
+              HEADER_HEIGHT={HEADER_HEIGHT}
+              colors={colors}
+              pxFromMinutes={pxFromMinutes}
+              minutesSinceStartOfDay={minutesSinceStartOfDay}
+              clamp={clamp}
+              getSnappedSlotDate={getSnappedSlotDate}
+              GRID_MINUTES_PER_SLOT={GRID_MINUTES_PER_SLOT}
+            />
           ))}
         </div>
       </main>

@@ -3,14 +3,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
-// Import your layout component
 import MainLayout from './layouts/MainLayout';
 
-// Assuming your main content for the single page is in App.jsx
 import CalendarPage from './Calendar';
 import DashboardPage from './Dashboard';
 import HoursPage from "./Hours";
 import AnalyticsPage from './Analytics';
+import HabitsPage from './Habits';
 
 import './index.css'; // Your global styles
 
@@ -37,6 +36,10 @@ const router = createBrowserRouter([
       {
         path: '/analytics',
         element: <AnalyticsPage />,
+      },
+      {
+        path: '/habits',
+        element: <HabitsPage />,
       },
     ],
   },

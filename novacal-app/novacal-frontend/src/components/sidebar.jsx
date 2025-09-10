@@ -31,6 +31,7 @@ const navLinks = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Calendar', href: '/calendar', icon: CalendarCheck },
   { name: 'Hours', href: '/hours', icon: FileClock },
+  { name: 'Habits', href: '/habits', icon: FileClock },
   { name: 'Analytics', href: '/analytics', icon: ChartNoAxesCombined },
 ];
 

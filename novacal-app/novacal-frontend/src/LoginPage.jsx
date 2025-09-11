@@ -1,0 +1,92 @@
+// LoginPage.jsx
+import React, { useState } from "react";
+
+export default function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    // --- FAKE LOGIN API MOCK --- //
+    await new Promise(r => setTimeout(r, 800)); // Simulate network delay
+    if (email === "test@demo.com" && password === "demo1234") {
+      const fakeApiResponse = {
+        token: "mocked.api.token.value.12345",
+        user: { id: 1, email: "test@demo.com", name: "Test User" },
+      };
+      localStorage.setItem("api_token", fakeApiResponse.token);
+      if (onLogin) onLogin(fakeApiResponse.user);
+      setLoading(false);
+    } else {
+      setError("Invalid email or password");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0b0f14]">
+      <div className="max-w-md w-full p-8 rounded-2xl shadow-lg" style={{ background: "linear-gradient(180deg,#0a0c0e,#050506)" }}>
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-extrabold text-white">Welcome back</h1>
+          <p className="mt-2 text-sm text-gray-400">Sign in to continue</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <label className="block">
+            <span className="text-xs text-gray-400">Email</span>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 w-full rounded-md px-3 py-2 bg-[#0f1720] border border-[#1f2a37] text-white placeholder-gray-500 focus:outline-none"
+              placeholder="you@domain.com"
+              autoComplete="username"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-xs text-gray-400">Password</span>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 w-full rounded-md px-3 py-2 bg-[#0f1720] border border-[#1f2a37] text-white placeholder-gray-500 focus:outline-none"
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+          </label>
+
+          {error && <div className="text-sm text-red-400">{error}</div>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2 rounded-lg font-semibold text-white transition-all"
+            style={{
+              background: "linear-gradient(90deg,#7aa2f7,#7b6cff)",
+              boxShadow: "0 6px 20px rgba(123,108,255,0.18)",
+            }}
+          >
+            {loading ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-gray-500">
+          <span>Don’t have an account? </span>
+          <a href="/signup" className="text-[#7aa2f7] underline">Create one</a>
+        </div>
+
+        <style jsx>{`
+          h1 { text-shadow: 0 2px 16px rgba(123,108,255,0.12); }
+        `}</style>
+      </div>
+    </div>
+  );
+}

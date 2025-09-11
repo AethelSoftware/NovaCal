@@ -35,7 +35,7 @@ export default function HoursPage() {
 
   return (
     <main className="hours-background w-full min-h-screen p-10">
-      <div className="mb-10 p-6 rounded-xl bg-white/10 shadow-lg border border-white/10">
+      <div className="mb-10 p-6 rounded-xl bg-white/10 shadow-lg border border-white/10 backdrop-blur-sm">
         <h2 className="flex items-center text-2xl font-semibold text-white mb-6 drop-shadow-glow">
           <Clock className="w-6 h-6 mr-2 text-emerald-400" />
           Working Hours
@@ -46,7 +46,7 @@ export default function HoursPage() {
           <div className="flex items-center mb-3 justify-between">
             <h3 className="text-lg font-semibold text-white">Weekdays</h3>
             <button
-              className="px-3 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-700 text-white font-medium shadow transition"
+              className="px-5 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium shadow transition cursor-pointer duration-200 border border-white/20"
               onClick={() => copyHoursToAll("weekdays")}
               type="button"
             >
@@ -88,7 +88,7 @@ export default function HoursPage() {
           <div className="flex items-center mb-3 justify-between">
             <h3 className="text-lg font-semibold text-white">Weekends</h3>
             <button
-              className="px-3 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-700 text-white font-medium shadow transition"
+              className="px-5 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium shadow transition cursor-pointer duration-200 border border-white/20"
               onClick={() => copyHoursToAll("weekends")}
               type="button"
             >

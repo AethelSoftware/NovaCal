@@ -16,7 +16,15 @@
 
 /* Add this to your global CSS file */
 .dashboard-background {
-  background-image: url('./assets/img.jpg');
+  background-image: url('/img.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+.habits-background {
+  background-image: url('/habitsbg.avif');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -24,7 +32,7 @@
 }
 
 .analytics-background {
-  background-image: url('./assets/coolbackgrounds-particles-compute.png');
+  background-image: url('/Analyticsbg.avif');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -32,7 +40,7 @@
 }
 
 .hours-background {
-  background-image: url('/hoursbg.jpeg');
+  background-image: url('/hoursbg.avif');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;

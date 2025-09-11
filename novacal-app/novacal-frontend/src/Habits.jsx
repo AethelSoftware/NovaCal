@@ -103,8 +103,8 @@ export default function HabitsPage() {
   }
 
   return (
-    <main className="bg-black p-10 w-full min-h-screen">
-      <div className="mb-10 p-6 rounded-xl bg-white/10 shadow-lg border border-white/10">
+    <main className="habits-background p-10 w-full min-h-screen">
+      <div className="mb-10 p-6 rounded-xl bg-white/10 shadow-lg border border-white/10 backdrop-blur-sm">
         <div className="flex items-center justify-between mb-6">
           <h2 className="flex items-center text-2xl font-semibold text-white drop-shadow-glow">
             <CheckCircle2 className="w-6 h-6 mr-2 text-sky-400" />

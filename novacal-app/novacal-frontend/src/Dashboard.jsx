@@ -2,15 +2,12 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Clock,
   Target,
-  TrendingUp,
   Play,
   CheckCircle2,
   AlertCircle,
   Timer,
   Square,
-  TrendingDown,
   Circle,
-  Undo2,
   Settings,
 } from "lucide-react";
 import { format, isToday, startOfDay, endOfDay } from "date-fns";
@@ -18,7 +15,6 @@ import Card from "./components/dashboard/DashboardCard";
 import ProgressRings from "./components/dashboard/ProgressRings";
 import ProductivitySection from "./components/dashboard/TodayProductivity";
 
-// Local storage keys
 const LS_TIME_KEY = "focusTimerTimeLeft";
 const LS_RUNNING_KEY = "focusTimerIsRunning";
 const LS_TASK_KEY = "focusTimerSelectedTask";
@@ -26,23 +22,19 @@ const LS_END_TS_KEY = "focusTimerEndTimestamp";
 const LS_DURATION_KEY = "focusTimerDuration";
 const LS_MODE_KEY = "focusTimerMode";
 const LS_STOPWATCH_START_TS_KEY = "focusTimerStopwatchStart";
-
 const DEFAULT_DURATION_MIN = 45;
 const DEFAULT_DURATION_SECONDS = DEFAULT_DURATION_MIN * 60;
-
 const API_BASE = "http://127.0.0.1:5000/api";
 
 export default function Dashboard() {
-  // Mode: "timer" (countdown) or "stopwatch" (count up)
   const [mode, setMode] = useState("timer");
   const [showSettings, setShowSettings] = useState(false);
-
-  // Session duration (seconds) - configurable by user
   const [sessionDuration, setSessionDuration] = useState(DEFAULT_DURATION_SECONDS);
+  const [activeSessionDuration, setActiveSessionDuration] = useState(sessionDuration);
 
   // Timer state
   const [timeLeft, setTimeLeft] = useState(sessionDuration);
-  const [stopwatchElapsed, setStopwatchElapsed] = useState(0); // seconds
+  const [stopwatchElapsed, setStopwatchElapsed] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
@@ -50,10 +42,8 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [focusSessions, setFocusSessions] = useState([]);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [activeTab, setActiveTab] = useState("sessions");
   const [undoingTask, setUndoingTask] = useState(null);
   const [animatingTask, setAnimatingTask] = useState(null);
@@ -75,31 +65,38 @@ export default function Dashboard() {
       const savedMode = localStorage.getItem(LS_MODE_KEY);
       const savedStopwatchStart = localStorage.getItem(LS_STOPWATCH_START_TS_KEY);
 
-      if (savedDuration) {
-        const dur = parseInt(savedDuration, 10);
-        if (!Number.isNaN(dur) && dur > 0) {
-          setSessionDuration(dur);
-          setTimeLeft(dur);
-          setTempMinutes(Math.max(1, Math.round(dur / 60)));
-        }
-      }
-
-      if (savedMode === "stopwatch" || savedMode === "timer") {
-        setMode(savedMode);
-      }
-
-      if (savedTask) setSelectedTask(JSON.parse(savedTask));
-      if (savedTime) setTimeLeft(parseInt(savedTime, 10));
-
-      if (savedRunning === "true") {
-        if (savedMode === "stopwatch" && savedStopwatchStart) {
+      if (savedMode === "stopwatch") {
+        setMode("stopwatch");
+      
+        // When in stopwatch mode
+        if (savedRunning === "true" && savedStopwatchStart) {
           const parsedStart = parseInt(savedStopwatchStart, 10);
-          const elapsed = Math.max(0, Math.floor((Date.now() - parsedStart) / 1000));
-          stopwatchStartTsRef.current = parsedStart;
-          setStopwatchElapsed(elapsed);
-          setIsRunning(true);
-          setMode("stopwatch");
-        } else if (savedEndTs) {
+          if (!Number.isNaN(parsedStart)) {
+            stopwatchStartTsRef.current = parsedStart;
+            setIsRunning(true);
+            setStopwatchElapsed(Math.max(0, Math.floor((Date.now() - parsedStart) / 1000)));
+          }
+        } else {
+          setIsRunning(false);
+          setStopwatchElapsed(0);
+        }
+      } else {
+        // default: timer logic
+        let dur = DEFAULT_DURATION_SECONDS;
+        if (savedDuration) {
+          const parsedDur = parseInt(savedDuration, 10);
+          if (!Number.isNaN(parsedDur) && parsedDur > 0) {
+            dur = parsedDur;
+          }
+        }
+        setSessionDuration(dur);
+        setTempMinutes(Math.max(1, Math.round(dur / 60)));
+      
+        if (savedTask) setSelectedTask(JSON.parse(savedTask));
+        if (savedTime) setTimeLeft(parseInt(savedTime, 10));
+        else setTimeLeft(dur);
+      
+        if (savedRunning === "true" && savedEndTs) {
           const parsedEnd = parseInt(savedEndTs, 10);
           const remaining = Math.max(0, Math.ceil((parsedEnd - Date.now()) / 1000));
           if (remaining > 0) {
@@ -108,14 +105,17 @@ export default function Dashboard() {
             setIsRunning(true);
             setMode("timer");
           } else {
-            // expired while offline/in background
             localStorage.removeItem(LS_END_TS_KEY);
             localStorage.setItem(LS_RUNNING_KEY, "false");
-            setTimeLeft(sessionDuration);
+            setTimeLeft(dur);
             setIsRunning(false);
           }
         }
       }
+      
+      // Select task after mode, for SSR safety
+      if (savedTask) setSelectedTask(JSON.parse(savedTask));
+      
     } catch (e) {
       console.error("Error restoring timer state:", e);
     }
@@ -142,7 +142,6 @@ export default function Dashboard() {
   }, [timeLeft, isRunning, selectedTask, sessionDuration, mode, stopwatchStartTsRef.current]);
 
   useEffect(() => {
-    // clear existing
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -159,7 +158,6 @@ export default function Dashboard() {
           const remaining = Math.max(0, Math.ceil((endTsRef.current - Date.now()) / 1000));
           setTimeLeft(remaining);
           if (remaining <= 0) {
-            // stop & complete
             clearInterval(timerRef.current);
             timerRef.current = null;
             endTsRef.current = null;
@@ -172,7 +170,6 @@ export default function Dashboard() {
         timerRef.current = setInterval(tick, 500);
         tick();
       } else {
-        // stopwatch mode
         if (!stopwatchStartTsRef.current) {
           stopwatchStartTsRef.current = Date.now() - stopwatchElapsed * 1000;
           localStorage.setItem(LS_STOPWATCH_START_TS_KEY, String(stopwatchStartTsRef.current));
@@ -199,7 +196,6 @@ export default function Dashboard() {
   useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
-
     async function fetchData() {
       setLoading(true);
       setError(null);
@@ -209,18 +205,15 @@ export default function Dashboard() {
           fetch(`${API_BASE}/focus_sessions`, { signal }),
           fetch(`${API_BASE}/completed_tasks`, { signal }),
         ]);
-
         if (!tasksRes.ok) throw new Error(`Tasks HTTP ${tasksRes.status}`);
         if (!sessionsRes.ok) throw new Error(`Sessions HTTP ${sessionsRes.status}`);
         if (!completedRes.ok) throw new Error(`Completed Tasks HTTP ${completedRes.status}`);
-
         const tasksData = await tasksRes.json();
         const sessionsData = await sessionsRes.json();
         const completedData = await completedRes.json();
 
         const todayStart = startOfDay(new Date());
         const todayEnd = endOfDay(new Date());
-
         const todayTasks = (tasksData || [])
           .map((t) => ({ ...t }))
           .filter((task) => {
@@ -232,14 +225,12 @@ export default function Dashboard() {
         const todaySessions = (sessionsData || []).filter((s) => isToday(new Date(s.start_time)));
         const todayCompleted = (completedData || []).filter((c) => isToday(new Date(c.completion_date)));
 
-        // Filter out tasks already completed today
         const filteredTasks = todayTasks.filter((task) => !todayCompleted.some((c) => c.task_id === task.id));
 
         setTasks(filteredTasks);
         setFocusSessions(todaySessions);
         setCompletedTasks(todayCompleted);
 
-        // If persisted selectedTask is not in today's tasks, clear it
         const savedTaskStr = localStorage.getItem(LS_TASK_KEY);
         if (savedTaskStr) {
           const parsed = JSON.parse(savedTaskStr);
@@ -260,11 +251,9 @@ export default function Dashboard() {
         setLoading(false);
       }
     }
-
     fetchData();
     return () => controller.abort();
   }, []);
-
 
   const handleSelectTask = (task) => {
     setSelectedTask(task);
@@ -272,13 +261,13 @@ export default function Dashboard() {
   };
 
   const handleStartFocus = () => {
+    setActiveSessionDuration(sessionDuration); // <-- Only here, not in resume
     if (!selectedTask) return;
     if (mode === "timer") {
       endTsRef.current = Date.now() + timeLeft * 1000;
       localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
       setIsRunning(true);
     } else {
-      // stopwatch
       stopwatchStartTsRef.current = Date.now() - stopwatchElapsed * 1000;
       localStorage.setItem(LS_STOPWATCH_START_TS_KEY, String(stopwatchStartTsRef.current));
       setIsRunning(true);
@@ -286,6 +275,7 @@ export default function Dashboard() {
   };
 
   const resume = () => {
+    // Don't change activeSessionDuration here!
     if (mode === "timer") {
       endTsRef.current = Date.now() + timeLeft * 1000;
       localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
@@ -328,23 +318,20 @@ export default function Dashboard() {
       localStorage.removeItem(LS_STOPWATCH_START_TS_KEY);
       setIsRunning(false);
 
-      // compute elapsedSeconds depending on mode
       let elapsedSeconds = 0;
       if (mode === "timer") {
-        elapsedSeconds = sessionDuration - timeLeft;
+        elapsedSeconds = activeSessionDuration - timeLeft;
       } else {
         elapsedSeconds = stopwatchElapsed;
       }
 
       if (!selectedTask) {
-        // reset UI but don't call API
         setTimeLeft(sessionDuration);
         setStopwatchElapsed(0);
+        setActiveSessionDuration(sessionDuration); // Reset for next session
         return;
       }
-
       const durationInMinutes = Math.max(0, Math.floor(elapsedSeconds / 60));
-
       try {
         const res = await fetch(`${API_BASE}/focus_sessions`, {
           method: "POST",
@@ -358,28 +345,24 @@ export default function Dashboard() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const newSession = await res.json();
         setFocusSessions((prev) => [...prev, newSession]);
-
         if (isTaskCompleted) {
-          // move to completed
           handleMoveToCompleted(selectedTask.id);
         }
-
         setSelectedTask(null);
         localStorage.removeItem(LS_TASK_KEY);
-        // reset UI based on mode
         setTimeLeft(sessionDuration);
         setStopwatchElapsed(0);
+        setActiveSessionDuration(sessionDuration); // Reset for next session
       } catch (e) {
         console.error("Failed to save focus session:", e);
-        // still reset UI
         setSelectedTask(null);
         localStorage.removeItem(LS_TASK_KEY);
         setTimeLeft(sessionDuration);
         setStopwatchElapsed(0);
+        setActiveSessionDuration(sessionDuration); // Reset for next session
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [timeLeft, selectedTask, sessionDuration, mode, stopwatchElapsed]
+    [timeLeft, selectedTask, sessionDuration, mode, stopwatchElapsed, activeSessionDuration]
   );
 
   const handleMoveToCompleted = async (taskId) => {

@@ -14,6 +14,7 @@ import { format, isToday, startOfDay, endOfDay } from "date-fns";
 import Card from "./components/dashboard/DashboardCard";
 import ProgressRings from "./components/dashboard/ProgressRings";
 import ProductivitySection from "./components/dashboard/TodayProductivity";
+import SessionExpiredModal from "./components/dashboard/SessionExpired";
 
 const LS_TIME_KEY = "focusTimerTimeLeft";
 const LS_RUNNING_KEY = "focusTimerIsRunning";
@@ -50,6 +51,10 @@ export default function Dashboard() {
   const [removingSession, setRemovingSession] = useState(null);
 
   const [tempMinutes, setTempMinutes] = useState(DEFAULT_DURATION_MIN);
+
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [elapsedBeforeExpire, setElapsedBeforeExpire] = useState(0);
+
 
   const timerRef = useRef(null);
   const endTsRef = useRef(null);
@@ -146,45 +151,57 @@ export default function Dashboard() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-
+  
     if (isRunning) {
       if (mode === "timer") {
         if (!endTsRef.current) {
           endTsRef.current = Date.now() + timeLeft * 1000;
           localStorage.setItem(LS_END_TS_KEY, String(endTsRef.current));
         }
-
+  
         const tick = () => {
           const remaining = Math.max(0, Math.ceil((endTsRef.current - Date.now()) / 1000));
           setTimeLeft(remaining);
+  
           if (remaining <= 0) {
             clearInterval(timerRef.current);
             timerRef.current = null;
-            endTsRef.current = null;
-            localStorage.removeItem(LS_END_TS_KEY);
+  
+            // Session expired instead of immediate completion
+            const elapsed = activeSessionDuration; 
+            setElapsedBeforeExpire(elapsed); 
+            setTimeLeft(0);
             setIsRunning(false);
-            handleCompleteFocus(false);
+            setSessionExpired(true);
+  
+            // Optional browser notification
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("Focus session ended!", {
+                body: "Your focus session has ended. Come back to finish or continue working.",
+              });
+            }
           }
         };
-
+  
         timerRef.current = setInterval(tick, 500);
         tick();
       } else {
+        // Stopwatch mode
         if (!stopwatchStartTsRef.current) {
           stopwatchStartTsRef.current = Date.now() - stopwatchElapsed * 1000;
           localStorage.setItem(LS_STOPWATCH_START_TS_KEY, String(stopwatchStartTsRef.current));
         }
-
+  
         const tick = () => {
           const elapsed = Math.max(0, Math.floor((Date.now() - stopwatchStartTsRef.current) / 1000));
           setStopwatchElapsed(elapsed);
         };
-
+  
         timerRef.current = setInterval(tick, 500);
         tick();
       }
     }
-
+  
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -192,6 +209,7 @@ export default function Dashboard() {
       }
     };
   }, [isRunning, mode]);
+  
 
   useEffect(() => {
     const controller = new AbortController();
@@ -255,6 +273,13 @@ export default function Dashboard() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+  }, []);
+  
+
   const handleSelectTask = (task) => {
     setSelectedTask(task);
     localStorage.setItem(LS_TASK_KEY, JSON.stringify(task));
@@ -317,21 +342,26 @@ export default function Dashboard() {
       localStorage.removeItem(LS_END_TS_KEY);
       localStorage.removeItem(LS_STOPWATCH_START_TS_KEY);
       setIsRunning(false);
-
+      setSessionExpired(false);
+  
       let elapsedSeconds = 0;
-      if (mode === "timer") {
+      if (sessionExpired) {
+        elapsedSeconds = elapsedBeforeExpire;
+      } else if (mode === "timer") {
         elapsedSeconds = activeSessionDuration - timeLeft;
       } else {
         elapsedSeconds = stopwatchElapsed;
       }
-
+  
       if (!selectedTask) {
         setTimeLeft(sessionDuration);
         setStopwatchElapsed(0);
-        setActiveSessionDuration(sessionDuration); // Reset for next session
+        setActiveSessionDuration(sessionDuration);
         return;
       }
+  
       const durationInMinutes = Math.max(0, Math.floor(elapsedSeconds / 60));
+  
       try {
         const res = await fetch(`${API_BASE}/focus_sessions`, {
           method: "POST",
@@ -342,28 +372,33 @@ export default function Dashboard() {
             task_completed: isTaskCompleted,
           }),
         });
+  
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const newSession = await res.json();
+  
         setFocusSessions((prev) => [...prev, newSession]);
+  
         if (isTaskCompleted) {
           handleMoveToCompleted(selectedTask.id);
         }
+  
         setSelectedTask(null);
         localStorage.removeItem(LS_TASK_KEY);
         setTimeLeft(sessionDuration);
         setStopwatchElapsed(0);
-        setActiveSessionDuration(sessionDuration); // Reset for next session
+        setActiveSessionDuration(sessionDuration);
       } catch (e) {
         console.error("Failed to save focus session:", e);
         setSelectedTask(null);
         localStorage.removeItem(LS_TASK_KEY);
         setTimeLeft(sessionDuration);
         setStopwatchElapsed(0);
-        setActiveSessionDuration(sessionDuration); // Reset for next session
+        setActiveSessionDuration(sessionDuration);
       }
     },
-    [timeLeft, selectedTask, sessionDuration, mode, stopwatchElapsed, activeSessionDuration]
+    [timeLeft, selectedTask, sessionDuration, mode, stopwatchElapsed, activeSessionDuration, sessionExpired, elapsedBeforeExpire]
   );
+  
 
   const handleMoveToCompleted = async (taskId) => {
     setAnimatingTask(taskId);
@@ -819,6 +854,19 @@ export default function Dashboard() {
           handleRemoveSession={handleRemoveSession}
           handleUndoCompletion={handleUndoCompletion}
         />
+
+        <SessionExpiredModal
+          isOpen={sessionExpired}
+          onFinish={() => handleCompleteFocus(true)}
+          onContinue={() => {
+            setMode("stopwatch");
+            setStopwatchElapsed(elapsedBeforeExpire);
+            stopwatchStartTsRef.current = Date.now() - elapsedBeforeExpire * 1000;
+            setIsRunning(true);
+            setSessionExpired(false);
+          }}
+        />
+
 
       </div>
     </div>

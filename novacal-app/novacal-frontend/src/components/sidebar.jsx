@@ -7,8 +7,6 @@ import {
   CalendarCheck,
   FileClock,
   ChartNoAxesCombined,
-  ChevronLeft,
-  ChevronRight,
   LogOut,
   LogIn,
   LayoutDashboard,
@@ -41,7 +39,7 @@ export default function Sidebar() {
   const pathname = location.pathname;
 
   const { isAuthenticated, logout, login } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -50,35 +48,30 @@ export default function Sidebar() {
 
   return (
     <aside
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
       className={clsx(
         'relative flex flex-col min-h-screen border-r border-zinc-700 bg-zinc-950 text-white shadow-xl overflow-hidden z-10 transition-all duration-300',
-        collapsed ? 'w-20 !p-3' : 'w-64 !p-6'
+        isHovering ? 'w-64 !p-6' : 'w-20 !p-3'
       )}
     >
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute top-1/2 -right-3 transform -translate-y-1/2 z-10 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full !p-1 shadow-md border border-zinc-700"
-      >
-        {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-      </button>
-
       <div className="mb-8 z-10 flex items-center justify-center">
-        {!collapsed && (
-          <a
-            href="/dashboard"
-            onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}
-            className="text-white w-full drop-shadow-xl flex justify-between items-center"
-          >
-            <div className="p-3 rounded-xl bg-zinc-800 mr-3 text-white"><Target className="w-6 h-6" /></div>
+        <a
+          href="/dashboard"
+          onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}
+          className="text-white w-full drop-shadow-xl flex items-center"
+        >
+          <div className={clsx("p-3 rounded-xl bg-zinc-800 text-white", isHovering && "mr-3")}><Target className="w-6 h-6" /></div>
+          {isHovering && (
             <div className='flex-1'>
               <div className="text-xl font-semibold">Novacal</div>
               <div className='text-sm text-zinc-400'>A new, smart calendar</div>
             </div>
-          </a>
-        )}
+          )}
+        </a>
       </div>
 
-      {!collapsed && (
+      {isHovering && (
         <div className="text-zinc-400 font-semibold text-sm mb-3">MENU</div>
       )}
 
@@ -101,12 +94,12 @@ export default function Sidebar() {
                     {
                       'bg-zinc-800 text-white border-l-4 border-white': isActive,
                       'hover:bg-zinc-800 hover:text-white text-zinc-400': !isActive,
-                      'justify-center border-l-0': collapsed,
+                      'justify-center border-l-0': !isHovering,
                     }
                   )}
                 >
                   <LinkIcon className="w-5 h-5 shrink-0" />
-                  {!collapsed && <span className="truncate">{link.name}</span>}
+                  {isHovering && <span className="truncate">{link.name}</span>}
                 </a>
               </li>
             );
@@ -120,11 +113,11 @@ export default function Sidebar() {
             onClick={handleLogout}
             className={clsx(
               'flex items-center w-full !px-4 !py-3 text-red-500 hover:bg-zinc-800 rounded-lg transition-colors duration-200',
-              collapsed && 'justify-center'
+              !isHovering && 'justify-center'
             )}
           >
             <LogOut className="w-5 h-5 mr-3 shrink-0" />
-            {!collapsed && <span className="truncate">Log Out</span>}
+            {isHovering && <span className="truncate">Log Out</span>}
           </button>
         ) : (
           <a
@@ -132,14 +125,14 @@ export default function Sidebar() {
             onClick={(e) => { e.preventDefault(); navigate('/login'); login(); }}
             className={clsx(
               'flex items-center w-full !px-4 !py-3 text-white hover:bg-zinc-800 rounded-lg transition-colors duration-200',
-              collapsed && 'justify-center'
+              !isHovering && 'justify-center'
             )}
           >
             <LogIn className="w-5 h-5 mr-3 shrink-0" />
-            {!collapsed && <span className="truncate">Login</span>}
+            {isHovering && <span className="truncate">Login</span>}
           </a>
         )}
-        {!collapsed && <p className="text-zinc-500 text-xs mt-2 text-center">v0.1.0</p>}
+        {isHovering && <p className="text-zinc-500 text-xs mt-2 text-center">v0.1.0</p>}
       </div>
     </aside>
   );

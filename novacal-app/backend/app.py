@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from sqlalchemy import Boolean, create_engine, Column, Integer, String, Text, DateTime, Table, MetaData, and_
+from sqlalchemy import Boolean, create_engine, Column, Integer, String, Text, DateTime, Table, MetaData, and_, select
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import os
@@ -13,6 +13,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///users.db")
 engine = create_engine(DATABASE_URL, echo=True)
 metadata = MetaData()
 
+# Existing tables (tasks / custom_tasks / focus_sessions / completed_tasks) as before
 tasks_table = Table(
     "tasks",
     metadata,
@@ -62,9 +63,20 @@ completed_tasks_table = Table(
     Column("completion_date", DateTime, nullable=False),
 )
 
+# NEW: working_hours table
+working_hours_table = Table(
+    "working_hours",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("day", String(32), nullable=False, unique=True),  # e.g. "Monday"
+    Column("start", String(8), nullable=False),  # "HH:MM"
+    Column("end", String(8), nullable=False),    # "HH:MM"
+)
+
 metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 
+# ---------- helper ----------
 def find_free_slots(existing_tasks, day_start, day_end):
     slots = []
     prev_end = day_start
@@ -485,6 +497,57 @@ def delete_completed_task(completed_task_id):
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()
+
+@app.route("/api/hours", methods=["GET"])
+def get_hours():
+    session = Session()
+    try:
+        rows = session.execute(working_hours_table.select()).fetchall()
+        # return as array of { day, start, end }
+        result = [{"day": r.day, "start": r.start, "end": r.end} for r in rows]
+        return jsonify(result)
+    finally:
+        session.close()
+
+
+@app.route("/api/hours", methods=["POST"])
+def save_hours():
+    session = Session()
+    try:
+        data = request.json or {}
+        hours_list = data.get("hours")
+        if not hours_list or not isinstance(hours_list, list):
+            return jsonify({"error": "Invalid payload, expected 'hours' list."}), 400
+
+        # Basic validation: ensure day/start/end exist and times look like HH:MM
+        for item in hours_list:
+            if not all(k in item for k in ("day", "start", "end")):
+                return jsonify({"error": "Each item must contain day, start, end"}), 400
+            # simple time format check
+            for t in ("start", "end"):
+                if not isinstance(item[t], str) or len(item[t]) < 4 or ":" not in item[t]:
+                    return jsonify({"error": f"Invalid time format for {t} in {item.get('day')}"}), 400
+
+        # Upsert: delete existing rows for provided days, then insert new ones
+        days = [it["day"] for it in hours_list]
+        session.execute(working_hours_table.delete().where(working_hours_table.c.day.in_(days)))
+        for it in hours_list:
+            session.execute(
+                working_hours_table.insert().values(
+                    day=it["day"],
+                    start=it["start"],
+                    end=it["end"],
+                )
+            )
+        session.commit()
+        return jsonify({"message": "Hours saved"}), 200
+    except Exception as e:
+        session.rollback()
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

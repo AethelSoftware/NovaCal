@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { format, addMinutes, differenceInMinutes } from "date-fns";
+import { format, addMinutes, differenceInMinutes, setHours, setMinutes, isAfter } from "date-fns";
 import { X, ZapOff, Zap, AlertTriangle, ArrowRight } from "lucide-react";
 import { roundToNearest15 } from "../../utils/calendarUtils";
 
@@ -16,12 +16,12 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [blockDuration, setBlockDuration] = useState(30);
 
+  const [workingHours, setWorkingHours] = useState(null);
+  const [loadingHours, setLoadingHours] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
-      const nowRounded = roundToNearest15(new Date());
-      const due = roundToNearest15(addMinutes(nowRounded, 24 * 60));
-      setStart(format(nowRounded, "yyyy-MM-dd'T'HH:mm"));
-      setDue(format(due, "yyyy-MM-dd'T'HH:mm"));
+      // reset basics
       setName("");
       setDescription("");
       setLinks("");
@@ -30,7 +30,57 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
       setImportance(2);
       setSplitEnabled(false);
       setBlockDuration(30);
+
+      // fetch working hours then initialize start/due suggestion
+      const initWithHours = async () => {
+        setLoadingHours(true);
+        try {
+          const res = await fetch("/api/hours");
+          if (!res.ok) throw new Error("Failed to fetch hours");
+          const data = await res.json(); // array [{day, start, end}, ...]
+          const map = (data || []).reduce((acc, r) => {
+            acc[r.day] = { start: r.start, end: r.end };
+            return acc;
+          }, {});
+          setWorkingHours(map);
+
+          const now = new Date();
+          const weekdayName = now.toLocaleDateString(undefined, { weekday: "long" });
+          const todayHours = map[weekdayName];
+
+          if (todayHours) {
+            const roundedNow = roundToNearest15(now);
+            const [hEnd, mEnd] = todayHours.end.split(":").map(Number);
+            const windowEnd = setMinutes(setHours(new Date(), hEnd), mEnd);
+
+            // always start at rounded now
+            const suggestedStart = roundedNow;
+
+            // due = end of window if valid, otherwise +12h
+            let suggestedDue = isAfter(windowEnd, suggestedStart)
+              ? windowEnd
+              : addMinutes(suggestedStart, 720);
+
+            setStart(format(suggestedStart, "yyyy-MM-dd'T'HH:mm"));
+            setDue(format(roundToNearest15(suggestedDue), "yyyy-MM-dd'T'HH:mm"));
+          } else {
+            const nowRounded = roundToNearest15(new Date());
+            setStart(format(nowRounded, "yyyy-MM-dd'T'HH:mm"));
+            setDue(format(roundToNearest15(addMinutes(nowRounded, 720)), "yyyy-MM-dd'T'HH:mm"));
+          }
+        } catch (err) {
+          console.error("Could not fetch working hours:", err);
+          const nowRounded = roundToNearest15(new Date());
+          setStart(format(nowRounded, "yyyy-MM-dd'T'HH:mm"));
+          setDue(format(roundToNearest15(addMinutes(nowRounded, 720)), "yyyy-MM-dd'T'HH:mm"));
+        } finally {
+          setLoadingHours(false);
+        }
+      };
+
+      initWithHours();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const timeBlocks = useMemo(() => {
@@ -105,10 +155,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
-          <h2
-            id="new-task-modal-title"
-            className="text-xl font-semibold tracking-tight"
-          >
+          <h2 id="new-task-modal-title" className="text-xl font-semibold tracking-tight">
             Create New Task
           </h2>
 
@@ -117,55 +164,29 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               type="button"
               onClick={() => setImportance(1)}
               title="Low Priority"
-              className={`p-2 rounded-full transition-colors ${
-                importance === 1
-                  ? "bg-sky-600"
-                  : "bg-zinc-800 hover:bg-zinc-700"
-              }`}
+              className={`p-2 rounded-full transition-colors ${importance === 1 ? "bg-sky-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
             >
-              <ZapOff
-                className={importance === 1 ? "text-white" : "text-sky-300"}
-                size={18}
-              />
+              <ZapOff className={importance === 1 ? "text-white" : "text-sky-300"} size={18} />
             </button>
             <button
               type="button"
               onClick={() => setImportance(2)}
               title="Normal Priority"
-              className={`p-2 rounded-full transition-colors ${
-                importance === 2
-                  ? "bg-yellow-500"
-                  : "bg-zinc-800 hover:bg-zinc-700"
-              }`}
+              className={`p-2 rounded-full transition-colors ${importance === 2 ? "bg-yellow-500" : "bg-zinc-800 hover:bg-zinc-700"}`}
             >
-              <Zap
-                className={importance === 2 ? "text-white" : "text-yellow-300"}
-                size={18}
-              />
+              <Zap className={importance === 2 ? "text-white" : "text-yellow-300"} size={18} />
             </button>
             <button
               type="button"
               onClick={() => setImportance(3)}
               title="High Priority"
-              className={`p-2 rounded-full transition-colors ${
-                importance === 3
-                  ? "bg-red-500"
-                  : "bg-zinc-800 hover:bg-zinc-700"
-              }`}
+              className={`p-2 rounded-full transition-colors ${importance === 3 ? "bg-red-500" : "bg-zinc-800 hover:bg-zinc-700"}`}
             >
-              <AlertTriangle
-                className={importance === 3 ? "text-white" : "text-red-300"}
-                size={18}
-              />
+              <AlertTriangle className={importance === 3 ? "text-white" : "text-red-300"} size={18} />
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-zinc-400 hover:text-red-400 transition"
-            title="Close"
-          >
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-red-400 transition" title="Close">
             <X size={22} />
           </button>
         </div>
@@ -246,6 +267,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
                 Available interval: {Math.floor(durationBetween / 60)}h {durationBetween % 60}m
               </p>
             )}
+            {loadingHours && <p className="text-sm text-zinc-500 mt-1">Loading working hours suggestion...</p>}
           </div>
 
           {/* Description */}
@@ -280,63 +302,29 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               role="button"
               aria-label="Select files"
               onKeyDown={(e) => {
-                if (e.key === " " || e.key === "Enter")
-                  document.getElementById("file-upload-input").click();
+                if (e.key === " " || e.key === "Enter") document.getElementById("file-upload-input").click();
               }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-zinc-400"
-                width="28"
-                height="28"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h2M8 8V6m0 0a2 2 0 114 0v2m0 0H8"
-                ></path>
+              <svg xmlns="http://www.w3.org/2000/svg" className="text-zinc-400" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h2M8 8V6m0 0a2 2 0 114 0v2m0 0H8" />
               </svg>
               <span className="text-zinc-400 text-sm">Drag or click to select files</span>
-              <input
-                type="file"
-                id="file-upload-input"
-                multiple
-                style={{ display: "none" }}
-                onChange={(e) => setFiles(e.target.files)}
-                accept="*"
-              />
+              <input type="file" id="file-upload-input" multiple style={{ display: "none" }} onChange={(e) => setFiles(e.target.files)} accept="*" />
             </div>
-            {files && files.length > 0 && (
-              <p className="mt-1 text-sm text-zinc-400">
-                {files.length} file{files.length > 1 ? "s" : ""} selected
-              </p>
-            )}
+            {files && files.length > 0 && <p className="mt-1 text-sm text-zinc-400">{files.length} file{files.length > 1 ? "s" : ""} selected</p>}
           </div>
 
           {/* Split Task Option */}
           <div className="space-y-4">
             <div className="flex items-center justify-between bg-zinc-900/50 p-4 rounded-xl border border-zinc-700">
-              <span className="text-zinc-200 font-medium">
-                Split task into blocks?
-              </span>
-              <input
-                type="checkbox"
-                checked={splitEnabled}
-                onChange={(e) => setSplitEnabled(e.target.checked)}
-                className="h-5 w-5 accent-violet-500"
-              />
+              <span className="text-zinc-200 font-medium">Split task into blocks?</span>
+              <input type="checkbox" checked={splitEnabled} onChange={(e) => setSplitEnabled(e.target.checked)} className="h-5 w-5 accent-violet-500" />
             </div>
 
             {splitEnabled && (
               <div className="bg-zinc-900/50 border border-zinc-700 rounded-xl p-4 space-y-4">
                 <div className="flex items-center gap-3">
-                  <label className="text-zinc-200 font-medium">
-                    Block Length (min):
-                  </label>
+                  <label className="text-zinc-200 font-medium">Block Length (min):</label>
                   <input
                     type="number"
                     min={15}
@@ -355,15 +343,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
 
                 {timeBlocks.length > 0 && (
                   <div className="max-h-40 overflow-y-auto bg-zinc-950/40 border border-zinc-800 rounded-xl p-3 text-white/90">
-                    <div className="text-zinc-400 font-semibold mb-2">
-                      Task Preview
-                    </div>
+                    <div className="text-zinc-400 font-semibold mb-2">Task Preview</div>
                     <ol className="list-decimal list-inside space-y-2">
                       {timeBlocks.map((b, i) => (
-                        <li
-                          key={i}
-                          className="flex items-center justify-between bg-zinc-900/70 px-3 py-2 rounded-lg text-sm"
-                        >
+                        <li key={i} className="flex items-center justify-between bg-zinc-900/70 px-3 py-2 rounded-lg text-sm">
                           <div className="flex items-center gap-2">
                             <span>{format(new Date(b.start), "HH:mm")}</span>
                             <ArrowRight className="w-4 h-4 text-zinc-500" />
@@ -382,19 +365,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
 
         {/* Footer */}
         <div className="flex justify-end space-x-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition"
-          >
-            Save Task
-          </button>
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition">Cancel</button>
+          <button type="submit" className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition">Save Task</button>
         </div>
       </form>
     </div>

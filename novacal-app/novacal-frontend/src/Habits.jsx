@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Plus,
   Trash2,
+  Search,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AddHabitModal from "./components/habits/HabitsModal";
@@ -10,9 +11,6 @@ import IconGrid from "./components/habits/IconGrid";
 import { ALL_DAYS } from "./components/habits/HabitsModal";
 
 export default function HabitsPage() {
-  // Habits is an object with habitId as keys for uniqueness, each value stores:
-  // { id, name, description, icon, file, schedules: [{ day, start, end }] }
-  // Default two habits with schedules for example
   const [habits, setHabits] = useState({
     1: {
       id: 1,
@@ -40,6 +38,7 @@ export default function HabitsPage() {
   const [editIcon, setEditIcon] = useState(null);
   const [editDescription, setEditDescription] = useState("");
   const [editSchedules, setEditSchedules] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Open modal and load habit details for editing
   function openDetailModal(habitId) {
@@ -90,7 +89,10 @@ export default function HabitsPage() {
 
   // Handle adding a new schedule entry
   function addSchedule() {
-    setEditSchedules((prev) => [...prev, { day: ALL_DAYS[0], start: "09:00", end: "10:00" }]);
+    setEditSchedules((prev) => [
+      ...prev,
+      { day: ALL_DAYS[0], start: "09:00", end: "10:00" },
+    ]);
   }
 
   // Handle removing a schedule entry
@@ -119,6 +121,11 @@ export default function HabitsPage() {
     }));
   }
 
+  // Filter habits based on search term
+  const filteredHabits = Object.values(habits).filter((habit) =>
+    habit.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <main className="habits-background p-10 w-full min-h-screen">
       <div className="mb-10 p-6 rounded-xl bg-white/10 shadow-lg border border-white/10 backdrop-blur-sm min-h-screen">
@@ -137,40 +144,62 @@ export default function HabitsPage() {
           </button>
         </div>
 
+        {/* Search bar */}
+        <div className="relative mb-6 w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search habits..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 rounded-lg bg-white/5 border border-white/20 text-white placeholder-gray-400 focus:outline-none"
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {Object.values(habits).map((habit) => {
-            const Icon = habit.icon;
-            return (
-              <motion.div
-                key={habit.id}
-                whileHover={{ scale: 1.03 }}
-                className="cursor-pointer relative rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all shadow-md p-4 flex flex-col"
-                onClick={() => openDetailModal(habit.id)}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-emerald-400/30 flex items-center justify-center w-10 h-10">
-                    {Icon && <Icon className="text-emerald-400 w-6 h-6" />}
-                  </span>
-                  <div>
-                    <p className="text-white font-medium text-lg">{habit.name}</p>
-                    <p className="text-gray-400 text-sm">
-                      {habit.schedules.map((s) => s.day).join(", ")}
-                    </p>
+          {filteredHabits.length > 0 ? (
+            filteredHabits.map((habit) => {
+              const Icon = habit.icon;
+              return (
+                <motion.div
+                  key={habit.id}
+                  whileHover={{ scale: 1.03 }}
+                  className="cursor-pointer relative rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all shadow-md p-4 flex flex-col"
+                  onClick={() => openDetailModal(habit.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-full bg-emerald-400/30 flex items-center justify-center w-10 h-10">
+                      {Icon && <Icon className="text-emerald-400 w-6 h-6" />}
+                    </span>
+                    <div>
+                      <p className="text-white font-medium text-lg">{habit.name}</p>
+                      <p className="text-gray-400 text-sm">
+                        {habit.schedules.map((s) => s.day).join(", ")}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                {habit.description && (
-                  <p className="text-gray-300 text-sm mt-2 line-clamp-2">
-                    {habit.description}
-                  </p>
-                )}
-              </motion.div>
-            );
-          })}
+                  {habit.description && (
+                    <p className="text-gray-300 text-sm mt-2 line-clamp-2">
+                      {habit.description}
+                    </p>
+                  )}
+                </motion.div>
+              );
+            })
+          ) : (
+            <p className="text-gray-400 col-span-full text-center">
+              No habits found.
+            </p>
+          )}
         </div>
       </div>
 
       {/* Add Habit Modal */}
-      <AddHabitModal open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSaveHabit} />
+      <AddHabitModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSaveHabit}
+      />
 
       {/* Detail/Edit Modal */}
       <AnimatePresence>
@@ -189,15 +218,22 @@ export default function HabitsPage() {
             >
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-bold text-white">Edit Habit</h3>
-                <button onClick={() => setSelectedHabitId(null)} className="text-gray-400 hover:text-white">
+                <button
+                  onClick={() => setSelectedHabitId(null)}
+                  className="text-gray-400 hover:text-white"
+                >
                   ✕
                 </button>
               </div>
 
               <label className="block text-white font-semibold mb-2">Name</label>
-              <p className="mb-4 text-white font-medium text-lg">{habits[selectedHabitId].name}</p>
+              <p className="mb-4 text-white font-medium text-lg">
+                {habits[selectedHabitId].name}
+              </p>
 
-              <label className="block text-white font-semibold mb-2">Description</label>
+              <label className="block text-white font-semibold mb-2">
+                Description
+              </label>
               <textarea
                 rows={3}
                 value={editDescription}
@@ -209,7 +245,9 @@ export default function HabitsPage() {
               <label className="block text-white font-semibold mb-2">Icon</label>
               <IconGrid selected={editIcon} onSelect={setEditIcon} />
 
-              <label className="block text-white font-semibold mb-4 mt-6">Schedules</label>
+              <label className="block text-white font-semibold mb-4 mt-6">
+                Schedules
+              </label>
               {editSchedules.map((sched, index) => (
                 <div key={index} className="flex items-center gap-2 mb-3 flex-wrap">
                   <select

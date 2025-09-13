@@ -178,7 +178,7 @@ export default function CalendarSidebar({
   const tabStyle = (active) =>
     `px-4 py-2 font-semibold border-b-2 transition-colors ${
       active
-        ? "border-violet-500 text-white"
+        ? "border-sky-500 text-white"
         : "border-transparent text-zinc-500 hover:text-white hover:border-zinc-700"
     }`;
 
@@ -285,7 +285,7 @@ export default function CalendarSidebar({
                     type="button"
                     className={`block w-full text-left mb-1 p-2 rounded-lg transition ${
                       isSelected
-                        ? "bg-violet-600 text-white font-semibold"
+                        ? "bg-sky-600 text-white font-semibold"
                         : "bg-zinc-900 hover:bg-zinc-800 text-zinc-200"
                     }`}
                   >
@@ -310,7 +310,7 @@ export default function CalendarSidebar({
                     maxLength={100}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
                     required
                   />
                 </div>
@@ -324,7 +324,7 @@ export default function CalendarSidebar({
                     rows={4}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white resize-y focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white resize-y focus:outline-none focus:ring-1 focus:ring-sky-500"
                     placeholder="Add details..."
                   />
                 </div>
@@ -338,7 +338,7 @@ export default function CalendarSidebar({
                     type="text"
                     value={links}
                     onChange={(e) => setLinks(e.target.value)}
-                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
                     placeholder="https://example.com, https://docs.com"
                   />
                 </div>
@@ -371,7 +371,7 @@ export default function CalendarSidebar({
                         }
                       }
                     }}
-                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
                     required
                   />
                 </div>
@@ -404,7 +404,7 @@ export default function CalendarSidebar({
                         }
                       }
                     }}
-                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
                     required
                   />
                 </div>
@@ -452,7 +452,7 @@ export default function CalendarSidebar({
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition"
+                    className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition duration-200"
                   >
                     <Ban size={18} />
                   </button>
@@ -466,7 +466,7 @@ export default function CalendarSidebar({
                   <button
                     type="button"
                     onClick={handleSave}
-                    className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition"
+                    className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium transition"
                   >
                     <Save size={18} />
                   </button>

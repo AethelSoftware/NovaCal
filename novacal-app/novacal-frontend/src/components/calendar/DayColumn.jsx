@@ -145,17 +145,7 @@ export default function DayColumn({
             }}
           />
         )}
-        {hoverTime && (
-          <div
-            className="absolute z-40 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 border border-slate-600 shadow"
-            style={{
-              left: clamp(hoverPos.x + 8, 0, 9999),
-              top: clamp(hoverPos.y - 12, 0, 9999),
-            }}
-          >
-            {format(hoverTime, "p")}
-          </div>
-        )}
+        
         {isSelecting &&
           selectStart &&
           selectEnd &&
@@ -195,7 +185,7 @@ export default function DayColumn({
           return (
             <div
               key={task.id}
-              className="absolute z-20 rounded-md text-white p-1.5 shadow-lg cursor-pointer bg-gradient-to-b from-teal-700 to-teal-800"
+              className="absolute z-20 rounded-md text-white p-1.5 shadow-lg cursor-pointer bg-sky-900/60 border border-white/20 border-dashed"
               style={{
                 top,
                 height,

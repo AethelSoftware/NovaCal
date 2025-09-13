@@ -164,9 +164,9 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               type="button"
               onClick={() => setImportance(1)}
               title="Low Priority"
-              className={`p-2 rounded-full transition-colors ${importance === 1 ? "bg-sky-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
+              className={`p-2 rounded-full transition-colors ${importance === 1 ? "bg-green-600" : "bg-zinc-800 hover:bg-zinc-700"}`}
             >
-              <ZapOff className={importance === 1 ? "text-white" : "text-sky-300"} size={18} />
+              <ZapOff className={importance === 1 ? "text-white" : "text-green-300"} size={18} />
             </button>
             <button
               type="button"
@@ -318,7 +318,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
           <div className="space-y-4">
             <div className="flex items-center justify-between bg-zinc-900/50 p-4 rounded-xl border border-zinc-700">
               <span className="text-zinc-200 font-medium">Split task into blocks?</span>
-              <input type="checkbox" checked={splitEnabled} onChange={(e) => setSplitEnabled(e.target.checked)} className="h-5 w-5 accent-violet-500" />
+              <input type="checkbox" checked={splitEnabled} onChange={(e) => setSplitEnabled(e.target.checked)} className="h-5 w-5 accent-sky-500" />
             </div>
 
             {splitEnabled && (
@@ -365,8 +365,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
 
         {/* Footer */}
         <div className="flex justify-end space-x-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition">Cancel</button>
-          <button type="submit" className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition">Save Task</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition cursor-pointer duration-200">Cancel</button>
+          <button type="submit" className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium transition cursor-pointer duration-200">Save Task</button>
         </div>
       </form>
     </div>

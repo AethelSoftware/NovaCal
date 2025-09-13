@@ -71,7 +71,7 @@ export default function Header({ viewType, setViewType, startDay, setStartDay, o
         </div>
         <button
           onClick={openCreateModal}
-          className="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-teal-700 hover:bg-teal-800 text-white text-sm shadow duration-200 cursor-pointer"
+          className="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-sky-700 hover:bg-sky-800 text-white text-sm shadow duration-200 cursor-pointer"
           type="button"
         >
           <Plus size={16} /> New Task

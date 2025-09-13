@@ -73,6 +73,7 @@ working_hours_table = Table(
     Column("end", String(8), nullable=False),    # "HH:MM"
 )
 
+
 metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 

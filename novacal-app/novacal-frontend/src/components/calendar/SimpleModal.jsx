@@ -171,9 +171,9 @@ export default function Modal({
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition"
+            className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium transition"
           >
-            Save
+            Save Task
           </button>
         </div>
       </form>

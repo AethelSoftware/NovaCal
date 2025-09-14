@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   CheckCircle2,
   Plus,
@@ -8,120 +8,238 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import AddHabitModal from "./components/habits/HabitsModal";
 import IconGrid from "./components/habits/IconGrid";
-import { ALL_DAYS } from "./components/habits/HabitsModal";
+
+const ALL_DAYS = [
+  "Monday", "Tuesday", "Wednesday",
+  "Thursday", "Friday", "Saturday", "Sunday",
+];
+
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const WEEKENDS = ["Saturday", "Sunday"];
+
+const DUMMY_HABITS = {
+  1: {
+    id: 1,
+    name: "Lunch Break",
+    description: "Take a mindful pause",
+    icon: CheckCircle2,
+    file: null,
+    schedules: [
+      { day: "Monday", start: "12:00", end: "13:00" }
+    ],
+  },
+  2: {
+    id: 2,
+    name: "Coffee Break",
+    description: "Grab a quick coffee",
+    icon: CheckCircle2,
+    file: null,
+    schedules: [
+      { day: "Monday", start: "10:00", end: "10:15" },
+      { day: "Wednesday", start: "10:00", end: "10:15" },
+    ],
+  },
+};
 
 export default function HabitsPage() {
-  const [habits, setHabits] = useState({
-    1: {
-      id: 1,
-      name: "Lunch Break",
-      description: "Take a mindful pause",
-      icon: CheckCircle2,
-      file: null,
-      schedules: [{ day: "Monday", start: "12:00", end: "13:00" }],
-    },
-    2: {
-      id: 2,
-      name: "Coffee Break",
-      description: "Grab a quick coffee",
-      icon: CheckCircle2,
-      file: null,
-      schedules: [
-        { day: "Monday", start: "10:00", end: "10:15" },
-        { day: "Wednesday", start: "10:00", end: "10:15" },
-      ],
-    },
-  });
+  const [habits, setHabits] = useState(DUMMY_HABITS);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedHabitId, setSelectedHabitId] = useState(null);
   const [editIcon, setEditIcon] = useState(null);
   const [editDescription, setEditDescription] = useState("");
-  const [editSchedules, setEditSchedules] = useState([]);
+  const [scheduleMode, setScheduleMode] = useState("custom");
+  const [timeRange, setTimeRange] = useState({ start: "09:00", end: "10:00" });
+  const [customDays, setCustomDays] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Open modal and load habit details for editing
+
+  useEffect(() => {
+    // Load habits from backend or fallback to dummy
+    async function fetchHabits() {
+      try {
+        const res = await fetch("/api/habits");
+        if (!res.ok) throw new Error("Failed to load habits");
+        const data = await res.json();
+        const mapped = {};
+        data.forEach(h => {
+          mapped[h.id] = {
+            ...h,
+            icon: CheckCircle2, // Adjust icon mapping as needed
+          };
+        });
+        setHabits(mapped);
+      } catch {
+        setHabits(DUMMY_HABITS);
+      }
+    }
+    fetchHabits();
+  }, []);
+
+  // Schedule building based on mode
+  function buildSchedulesFromEdit() {
+    switch (scheduleMode) {
+      case "all":
+        return ALL_DAYS.map((day) => ({
+          day,
+          start: timeRange.start,
+          end: timeRange.end,
+        }));
+      case "weekdays":
+        return WEEKDAYS.map((day) => ({
+          day,
+          start: timeRange.start,
+          end: timeRange.end,
+        }));
+      case "weekends":
+        return WEEKENDS.map((day) => ({
+          day,
+          start: timeRange.start,
+          end: timeRange.end,
+        }));
+      case "custom":
+        return customDays;
+      default:
+        return [];
+    }
+  }
+
   function openDetailModal(habitId) {
     const habit = habits[habitId];
     setSelectedHabitId(habitId);
     setEditIcon(habit.icon ? { name: habit.icon.name, icon: habit.icon } : null);
     setEditDescription(habit.description || "");
-    setEditSchedules(habit.schedules || []);
-  }
 
-  // Save changes to icon, description, schedules
-  function saveHabitDetails() {
-    if (!selectedHabitId) return;
-    setHabits((prev) => {
-      const habit = prev[selectedHabitId];
-      if (!habit) return prev;
-      return {
-        ...prev,
-        [selectedHabitId]: {
-          ...habit,
-          icon: editIcon ? editIcon.icon : habit.icon,
-          description: editDescription,
-          schedules: editSchedules,
-        },
-      };
-    });
-    setSelectedHabitId(null);
-  }
+    const scheds = habit.schedules || [];
 
-  // Remove a habit completely
-  function handleRemoveHabit(id) {
-    setHabits((prev) => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
-    });
-    setSelectedHabitId(null);
-  }
+    if (!scheds.length) {
+      setScheduleMode("custom");
+      setCustomDays([]);
+      setTimeRange({ start: "09:00", end: "10:00" });
+      return;
+    }
 
-  // Handle schedule change (day, start, end)
-  function updateSchedule(index, field, value) {
-    setEditSchedules((prev) =>
-      prev.map((sched, i) =>
-        i === index ? { ...sched, [field]: value } : sched
-      )
+    const daysSet = new Set(scheds.map((s) => s.day));
+    const uniqueTimes = new Set(scheds.map((s) => s.start + "-" + s.end));
+    if (
+      daysSet.size === 7 &&
+      uniqueTimes.size === 1
+    ) {
+      setScheduleMode("all");
+      setTimeRange({ start: scheds[0].start, end: scheds[0].end });
+      setCustomDays([]);
+      return;
+    }
+
+    const isWeekdays = WEEKDAYS.every((d) => daysSet.has(d)) && daysSet.size === WEEKDAYS.length;
+    if (isWeekdays && uniqueTimes.size === 1) {
+      setScheduleMode("weekdays");
+      setTimeRange({ start: scheds[0].start, end: scheds[0].end });
+      setCustomDays([]);
+      return;
+    }
+
+    const isWeekends = WEEKENDS.every((d) => daysSet.has(d)) && daysSet.size === WEEKENDS.length;
+    if (isWeekends && uniqueTimes.size === 1) {
+      setScheduleMode("weekends");
+      setTimeRange({ start: scheds[0].start, end: scheds[0].end });
+      setCustomDays([]);
+      return;
+    }
+
+    setScheduleMode("custom");
+    setCustomDays(
+      scheds.map((s) => ({ day: s.day, start: s.start, end: s.end }))
     );
   }
 
-  // Handle adding a new schedule entry
-  function addSchedule() {
-    setEditSchedules((prev) => [
+  async function saveHabitDetails() {
+    if (!selectedHabitId) return;
+    const habit = habits[selectedHabitId];
+    const updatedHabit = {
+      ...habit,
+      icon: editIcon ? editIcon.icon : habit.icon,
+      description: editDescription,
+      schedules: buildSchedulesFromEdit()
+    };
+    try {
+      const res = await fetch(`/api/habits/${selectedHabitId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedHabit),
+      });
+      if (!res.ok) throw new Error("Failed to update habit");
+      const data = await res.json();
+      setHabits((prev) => ({
+        ...prev,
+        [data.id]: { ...data, icon: CheckCircle2 },
+      }));
+      setSelectedHabitId(null);
+    } catch (err) {
+      alert("Error saving habit: " + err.message);
+    }
+  }
+
+  async function handleRemoveHabit(id) {
+    try {
+      const res = await fetch(`/api/habits/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete habit");
+      setHabits((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+      setSelectedHabitId(null);
+    } catch (err) {
+      alert("Error deleting habit: " + err.message);
+    }
+  }
+
+  function updateCustomDay(index, field, value) {
+    setCustomDays((prev) =>
+      prev.map((d, i) => (i === index ? { ...d, [field]: value } : d))
+    );
+  }
+
+  function addCustomDay() {
+    const usedDays = new Set(customDays.map((d) => d.day));
+    const available = ALL_DAYS.filter((d) => !usedDays.has(d));
+    if (available.length === 0) return;
+    setCustomDays((prev) => [
       ...prev,
-      { day: ALL_DAYS[0], start: "09:00", end: "10:00" },
+      { day: available[0], start: "09:00", end: "10:00" },
     ]);
   }
 
-  // Handle removing a schedule entry
-  function removeSchedule(index) {
-    setEditSchedules((prev) => prev.filter((_, i) => i !== index));
+  function removeCustomDay(index) {
+    setCustomDays((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // Adding new habit from modal
-  function handleSaveHabit(newHabit) {
-    // Create new unique id
-    const newId = Date.now() + Math.random();
-    setHabits((prev) => ({
-      ...prev,
-      [newId]: {
-        id: newId,
-        name: newHabit.name,
-        description: newHabit.description,
-        icon: newHabit.icon.icon,
-        file: newHabit.file,
-        schedules: newHabit.days.map((day) => ({
-          day,
-          start: "09:00",
-          end: "10:00",
-        })),
-      },
-    }));
+  async function handleSaveHabit(newHabit) {
+    try {
+      const res = await fetch("/api/habits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newHabit.name,
+          description: newHabit.description,
+          icon: "CheckCircle2",
+          schedules: newHabit.days.map(day => ({ day, start: "09:00", end: "10:00" })),
+          file: newHabit.file,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create habit");
+      const data = await res.json();
+      setHabits((prev) => ({
+        ...prev,
+        [data.id]: { ...data, icon: CheckCircle2 },
+      }));
+      setModalOpen(false);
+    } catch (err) {
+      alert("Error creating habit: " + err.message);
+    }
   }
 
-  // Filter habits based on search term
   const filteredHabits = Object.values(habits).filter((habit) =>
     habit.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -144,7 +262,6 @@ export default function HabitsPage() {
           </button>
         </div>
 
-        {/* Search bar */}
         <div className="relative mb-6 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
@@ -194,14 +311,12 @@ export default function HabitsPage() {
         </div>
       </div>
 
-      {/* Add Habit Modal */}
       <AddHabitModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSave={handleSaveHabit}
       />
 
-      {/* Detail/Edit Modal */}
       <AnimatePresence>
         {selectedHabitId && (
           <motion.div
@@ -248,47 +363,96 @@ export default function HabitsPage() {
               <label className="block text-white font-semibold mb-4 mt-6">
                 Schedules
               </label>
-              {editSchedules.map((sched, index) => (
-                <div key={index} className="flex items-center gap-2 mb-3 flex-wrap">
-                  <select
-                    value={sched.day}
-                    onChange={(e) => updateSchedule(index, "day", e.target.value)}
-                    className="rounded-lg p-1 bg-white/5 border border-white/20 text-white"
-                  >
-                    {ALL_DAYS.map((day) => (
-                      <option key={day} value={day}>
-                        {day}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="time"
-                    value={sched.start}
-                    onChange={(e) => updateSchedule(index, "start", e.target.value)}
-                    className="rounded-lg p-1 bg-white/5 border border-white/20 text-white max-w-[100px]"
-                  />
-                  <span className="text-white">to</span>
-                  <input
-                    type="time"
-                    value={sched.end}
-                    onChange={(e) => updateSchedule(index, "end", e.target.value)}
-                    className="rounded-lg p-1 bg-white/5 border border-white/20 text-white max-w-[100px]"
-                  />
-                  <button
-                    onClick={() => removeSchedule(index)}
-                    className="text-red-400 hover:text-red-600 px-2"
-                    aria-label="Remove schedule"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={addSchedule}
-                className="px-3 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 mb-4"
+
+              <select
+                value={scheduleMode}
+                onChange={(e) => setScheduleMode(e.target.value)}
+                className="rounded-lg p-2 mb-4 bg-white/5 border border-white/20 text-white max-w-max"
               >
-                + Add Schedule
-              </button>
+                <option value="all">All Week</option>
+                <option value="weekdays">Weekdays (Mon-Fri)</option>
+                <option value="weekends">Weekends (Sat-Sun)</option>
+                <option value="custom">Custom</option>
+              </select>
+
+              {(scheduleMode === "all" || scheduleMode === "weekdays" || scheduleMode === "weekends") && (
+                <div className="flex items-center gap-3 mb-4 flex-wrap max-w-sm">
+                  <label className="text-white whitespace-nowrap">Start:</label>
+                  <input
+                    type="time"
+                    value={timeRange.start}
+                    onChange={(e) =>
+                      setTimeRange((prev) => ({ ...prev, start: e.target.value }))
+                    }
+                    className="rounded-lg p-1 bg-white/5 border border-white/20 text-white max-w-[100px]"
+                  />
+                  <label className="text-white whitespace-nowrap">End:</label>
+                  <input
+                    type="time"
+                    value={timeRange.end}
+                    onChange={(e) =>
+                      setTimeRange((prev) => ({ ...prev, end: e.target.value }))
+                    }
+                    className="rounded-lg p-1 bg-white/5 border border-white/20 text-white max-w-[100px]"
+                  />
+                </div>
+              )}
+
+              {scheduleMode === "custom" && (
+                <>
+                  {customDays.map((sched, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 mb-3 flex-wrap max-w-full"
+                    >
+                      <select
+                        value={sched.day}
+                        onChange={(e) =>
+                          updateCustomDay(index, "day", e.target.value)
+                        }
+                        className="rounded-lg p-1 bg-white/5 border border-white/20 text-white max-w-[140px]"
+                      >
+                        {ALL_DAYS.map((day) => (
+                          <option key={day} value={day}>
+                            {day}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="time"
+                        value={sched.start}
+                        onChange={(e) =>
+                          updateCustomDay(index, "start", e.target.value)
+                        }
+                        className="rounded-lg p-1 bg-white/5 border border-white/20 text-white max-w-[100px]"
+                      />
+                      <span className="text-white whitespace-nowrap">to</span>
+                      <input
+                        type="time"
+                        value={sched.end}
+                        onChange={(e) =>
+                          updateCustomDay(index, "end", e.target.value)
+                        }
+                        className="rounded-lg p-1 bg-white/5 border border-white/20 text-white max-w-[100px]"
+                      />
+                      <button
+                        onClick={() => removeCustomDay(index)}
+                        className="text-red-400 hover:text-red-600 px-2"
+                        aria-label="Remove schedule"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={addCustomDay}
+                    className="px-3 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 mb-4"
+                    disabled={customDays.length >= 7}
+                  >
+                    + Add Day
+                  </button>
+                </>
+              )}
 
               <div className="flex justify-end gap-3">
                 <button
@@ -299,10 +463,7 @@ export default function HabitsPage() {
                   Delete
                 </button>
                 <button
-                  onClick={() => {
-                    saveHabitDetails();
-                    setSelectedHabitId(null);
-                  }}
+                  onClick={() => saveHabitDetails()}
                   className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
                 >
                   Save Changes

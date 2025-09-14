@@ -1,7 +1,13 @@
 import React, { useMemo } from "react";
-import { format, isEqual, startOfDay, isAfter, addMinutes, differenceInMinutes } from "date-fns";
+import {
+  format,
+  isEqual,
+  startOfDay,
+  isAfter,
+  addMinutes,
+  differenceInMinutes,
+} from "date-fns";
 
-// All dependencies must be passed via props, including derived state and setter functions.
 export default function DayColumn({
   date,
   now,
@@ -43,7 +49,7 @@ export default function DayColumn({
   minutesSinceStartOfDay,
   clamp,
   getSnappedSlotDate,
-  GRID_MINUTES_PER_SLOT
+  GRID_MINUTES_PER_SLOT,
 }) {
   const dayKey = +startOfDay(date);
   const dayTasks = tasksByDay.get(dayKey) || [];
@@ -145,7 +151,7 @@ export default function DayColumn({
             }}
           />
         )}
-        
+
         {isSelecting &&
           selectStart &&
           selectEnd &&
@@ -165,11 +171,12 @@ export default function DayColumn({
                   top,
                   height,
                   background: colors.selectedSlot,
-                  outline: `1px dashed ${colors.taskBorder}`,
+                  outline: `1px dashed ${colors.taskBorder || "white"}`,
                 }}
               />
             );
           })()}
+
         {prepared.map((task) => {
           const start = task.start;
           const end = task.end;
@@ -182,20 +189,20 @@ export default function DayColumn({
           const showDescription = height >= 64;
           const isPastTask = isToday && end <= now;
 
+          // Different style for habits
+          const isHabit = task.isHabit;
+
           return (
             <div
               key={task.id}
-              className="absolute z-20 rounded-md text-white p-1.5 shadow-lg cursor-pointer bg-sky-900/60 border border-white/20 border-dashed"
+              className={`absolute z-20 rounded-md text-white p-1.5 shadow-lg cursor-pointer border border-white/20 border-dashed flex flex-col gap-1 overflow-hidden select-none 
+                ${isHabit ? "bg-emerald-900/80" : "bg-sky-900/60"}`}
               style={{
                 top,
                 height,
                 left,
                 width,
                 boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-                overflow: "hidden",
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
                 userSelect: "none",
               }}
               title={`${task.name}: ${format(start, "p")} – ${format(end, "p")}`}
@@ -203,28 +210,28 @@ export default function DayColumn({
                 if (e.button !== 0) return;
                 e.stopPropagation();
                 dragMovedRef.current = false;
-                setDraggingTaskId(task.id);
-                setDragStartY(e.clientY);
-                setDragOriginalStart(start);
-                setDragOriginalEnd(end);
-                setDragActive(false);
+                setDraggingTaskId && setDraggingTaskId(task.id);
+                setDragStartY && setDragStartY(e.clientY);
+                setDragOriginalStart && setDragOriginalStart(start);
+                setDragOriginalEnd && setDragOriginalEnd(end);
+                setDragActive && setDragActive(false);
               }}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!dragMovedRef.current && !dragActive) {
-                  setSelectedTask(task);
-                  setSidebarInitialTab("tasks");
-                  setSidebarOpen(true);
+                  setSelectedTask && setSelectedTask(task);
+                  setSidebarInitialTab && setSidebarInitialTab("tasks");
+                  setSidebarOpen && setSidebarOpen(true);
                 }
               }}
               onContextMenu={(e) => {
                 e.preventDefault();
-                setSelectedTask(task);
-                setSidebarInitialTab("tasks");
-                setSidebarOpen(true);
+                setSelectedTask && setSelectedTask(task);
+                setSidebarInitialTab && setSidebarInitialTab("tasks");
+                setSidebarOpen && setSidebarOpen(true);
               }}
             >
-              {isPastTask && (
+              {isPastTask && !isHabit && (
                 <div className="absolute inset-0 bg-black/30 pointer-events-none" />
               )}
               <div className="truncate font-bold leading-tight text-[12px] relative z-10">
@@ -240,31 +247,35 @@ export default function DayColumn({
                   {task.description}
                 </div>
               )}
-              <div
-                className="absolute left-0 right-0 h-1.5 cursor-ns-resize opacity-70"
-                style={{ top: -1, background: "transparent" }}
-                onMouseDown={(e) => {
-                  setResizingTaskId(task.id);
-                  setResizeEdge("top");
-                  setResizeStartY(e.clientY);
-                  setResizeOriginalStart(start);
-                  setResizeOriginalEnd(end);
-                  setResizeActive(false);
-                }}
-              />
-              <div
-                className="absolute left-0 right-0 h-2 cursor-ns-resize opacity-70"
-                style={{ bottom: -1, background: "transparent" }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  setResizingTaskId(task.id);
-                  setResizeEdge("bottom");
-                  setResizeStartY(e.clientY);
-                  setResizeOriginalStart(start);
-                  setResizeOriginalEnd(end);
-                  setResizeActive(false);
-                }}
-              />
+              {!isHabit && (
+                <>
+                  <div
+                    className="absolute left-0 right-0 h-1.5 cursor-ns-resize opacity-70"
+                    style={{ top: -1, background: "transparent" }}
+                    onMouseDown={(e) => {
+                      setResizingTaskId && setResizingTaskId(task.id);
+                      setResizeEdge && setResizeEdge("top");
+                      setResizeStartY && setResizeStartY(e.clientY);
+                      setResizeOriginalStart && setResizeOriginalStart(start);
+                      setResizeOriginalEnd && setResizeOriginalEnd(end);
+                      setResizeActive && setResizeActive(false);
+                    }}
+                  />
+                  <div
+                    className="absolute left-0 right-0 h-2 cursor-ns-resize opacity-70"
+                    style={{ bottom: -1, background: "transparent" }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      setResizingTaskId && setResizingTaskId(task.id);
+                      setResizeEdge && setResizeEdge("bottom");
+                      setResizeStartY && setResizeStartY(e.clientY);
+                      setResizeOriginalStart && setResizeOriginalStart(start);
+                      setResizeOriginalEnd && setResizeOriginalEnd(end);
+                      setResizeActive && setResizeActive(false);
+                    }}
+                  />
+                </>
+              )}
             </div>
           );
         })}

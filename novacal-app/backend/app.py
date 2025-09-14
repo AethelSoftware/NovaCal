@@ -5,6 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import os
 import traceback
+from sqlalchemy import JSON
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -73,6 +75,16 @@ working_hours_table = Table(
     Column("end", String(8), nullable=False),    # "HH:MM"
 )
 
+habits_table = Table(
+    "habits",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String(255), nullable=False),
+    Column("description", Text, default=""),
+    Column("icon", String(64), default="CheckCircle2"),
+    Column("file", String(255), nullable=True),
+    Column("schedules", JSON, nullable=False),
+)
 
 metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
@@ -548,6 +560,131 @@ def save_hours():
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()
+
+@app.route("/api/habits", methods=["GET"])
+def get_habits():
+    session = Session()
+    try:
+        habits = session.execute(habits_table.select()).fetchall()
+        # convert schedules JSON column back to Python list
+        return jsonify([
+            {
+                "id": h.id,
+                "name": h.name,
+                "description": h.description or "",
+                "icon": h.icon or "CheckCircle2",
+                "file": h.file,
+                "schedules": h.schedules or [],
+            }
+            for h in habits
+        ])
+    finally:
+        session.close()
+
+@app.route("/api/habits", methods=["POST"])
+def create_habit():
+    session = Session()
+    try:
+        data = request.json
+        if not data.get("name") or not data.get("schedules"):
+            return jsonify({"error": "Name and schedules required"}), 400
+
+        stmt = habits_table.insert().values(
+            name=data["name"],
+            description=data.get("description", ""),
+            icon=data.get("icon", "CheckCircle2"),
+            file=data.get("file", None),
+            schedules=data["schedules"],
+        )
+        result = session.execute(stmt)
+        new_id = result.inserted_primary_key[0]
+        session.commit()
+        habit = session.execute(habits_table.select().where(habits_table.c.id == new_id)).first()
+        return jsonify({
+            "id": habit.id,
+            "name": habit.name,
+            "description": habit.description,
+            "icon": habit.icon,
+            "file": habit.file,
+            "schedules": habit.schedules,
+        }), 201
+    except Exception as e:
+        session.rollback()
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+
+@app.route("/api/habits/<int:habit_id>", methods=["PATCH"])
+def update_habit(habit_id):
+    session = Session()
+    try:
+        data = request.json
+        habit = session.execute(
+            habits_table.select().where(habits_table.c.id == habit_id)
+        ).first()
+
+        if not habit:
+            return jsonify({"error": "Habit not found"}), 404
+
+        updates = {}
+
+        if "schedules" in data:
+            updates["schedules"] = data["schedules"]  # ✅ keep as list/dict
+        for field in ["name", "description", "icon", "file"]:
+            if field in data:
+                # ✅ ensure icon is string
+                if field == "icon" and isinstance(data[field], dict):
+                    updates[field] = data[field].get("name", "CheckCircle2")
+                else:
+                    updates[field] = data[field]
+
+        if not updates:
+            return jsonify({"error": "No updates submitted"}), 400
+
+        session.execute(
+            habits_table.update()
+            .where(habits_table.c.id == habit_id)
+            .values(**updates)
+        )
+        session.commit()
+
+        updated = session.execute(
+            habits_table.select().where(habits_table.c.id == habit_id)
+        ).first()
+
+        return jsonify({
+            "id": updated.id,
+            "name": updated.name,
+            "description": updated.description,
+            "icon": updated.icon,
+            "file": updated.file,
+            "schedules": updated.schedules or [],  # ✅ already deserialized
+        }), 200
+
+    except Exception as e:
+        session.rollback()
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+
+@app.route("/api/habits/<int:habit_id>", methods=["DELETE"])
+def delete_habit(habit_id):
+    session = Session()
+    try:
+        session.execute(habits_table.delete().where(habits_table.c.id == habit_id))
+        session.commit()
+        return jsonify({"message": "Habit deleted"}), 200
+    except Exception as e:
+        session.rollback()
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
 
 
 if __name__ == "__main__":

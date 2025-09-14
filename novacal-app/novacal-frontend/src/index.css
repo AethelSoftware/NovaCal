@@ -70,3 +70,27 @@
   scrollbar-width: thin;
   scrollbar-color: #BDBDBD transparent;
 }
+
+
+.calendar-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.calendar-scrollbar::-webkit-scrollbar-track {
+  background: transparent; /* optional: subtle background */
+}
+
+.calendar-scrollbar::-webkit-scrollbar-thumb {
+  background: #8da4c1;
+  border-radius: 9999px;
+}
+
+.calendar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9E9E9E;
+}
+
+/* Firefox */
+.calendar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #8da4c1 transparent;
+}

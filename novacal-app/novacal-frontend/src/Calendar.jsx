@@ -194,8 +194,138 @@ export default function CalendarPage() {
     return map;
   }, [combinedEvents, daysToShow]);
 
-  // Remaining handlers (drag, resize etc) keep as your existing code ...
+  // ===== Helpers used for dragging/resizing/persistence =====
+  const minutesSinceStartOfDay = (d) => getHours(d) * 60 + getMinutes(d);
+  const pxFromMinutes = (mins) => (mins / GRID_MINUTES_PER_SLOT) * GRID_SLOT_HEIGHT_PX;
+  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+  const slotsToMinutes = (slots) => slots * GRID_MINUTES_PER_SLOT;
 
+  // Persist task update to backend (PATCH) and update local state optimistically
+  const onUpdateTask = async (updatedTask) => {
+    try {
+      // optimistic update
+      setTasks((prev) => prev.map((t) => (String(t.id) === String(updatedTask.id) ? updatedTask : t)));
+
+      const res = await fetch(`/api/tasks/${updatedTask.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: updatedTask.name,
+          description: updatedTask.description,
+          links: updatedTask.links,
+          start: updatedTask.start,
+          end: updatedTask.end,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update task");
+      const fresh = await res.json();
+      setTasks((prev) => prev.map((t) => (String(t.id) === String(fresh.id) ? fresh : t)));
+    } catch (err) {
+      console.error("Error updating task:", err);
+      alert("Error updating task: " + err.message);
+    }
+  };
+
+  const updateTaskTimes = (taskId, newStart, newEnd) => {
+    const task = tasks.find((t) => String(t.id) === String(taskId));
+    if (!task) return; // could be a habit block – ignore
+    const updated = {
+      ...task,
+      start: toLocalISOString(newStart),
+      end: toLocalISOString(newEnd),
+    };
+    onUpdateTask(updated);
+  };
+
+  // Pointer move/up handlers: re-introduced from the old calendar so drag/resize persist
+  useEffect(() => {
+    const onPointerMove = (e) => {
+      // Dragging tasks
+      if (draggingTaskId != null) {
+        // Only handle dragging for real tasks (not habit blocks)
+        const task = tasks.find((t) => String(t.id) === String(draggingTaskId));
+        if (!task) return;
+
+        const deltaY = e.clientY - dragStartY;
+        if (!dragActive && Math.abs(deltaY) > 6) {
+          setDragActive(true);
+          dragMovedRef.current = true;
+        }
+        if (dragActive) {
+          const slotsMoved = Math.round(deltaY / GRID_SLOT_HEIGHT_PX);
+          const newStart = addMinutes(dragOriginalStart, slotsToMinutes(slotsMoved));
+          const duration = differenceInMinutes(dragOriginalEnd, dragOriginalStart);
+          let ns = new Date(newStart);
+          let ne = addMinutes(ns, duration);
+
+          // Stay on same day
+          if (!isEqual(startOfDay(ns), startOfDay(dragOriginalStart))) return;
+
+          const snappedStart = floorTo15(ns);
+          const snappedEnd = floorTo15(ne);
+          updateTaskTimes(draggingTaskId, snappedStart, snappedEnd);
+        }
+      }
+
+      // Resizing tasks
+      if (resizingTaskId != null) {
+        const task = tasks.find((t) => String(t.id) === String(resizingTaskId));
+        if (!task) return;
+
+        const deltaY = e.clientY - resizeStartY;
+        if (!resizeActive && Math.abs(deltaY) > 6) {
+          setResizeActive(true);
+        }
+        if (resizeActive) {
+          let ns = new Date(resizeOriginalStart);
+          let ne = new Date(resizeOriginalEnd);
+          if (resizeEdge === "bottom") {
+            ne = addMinutes(resizeOriginalEnd, slotsToMinutes(Math.round(deltaY / GRID_SLOT_HEIGHT_PX)));
+            if (!isEqual(startOfDay(ne), startOfDay(resizeOriginalStart))) return;
+            ne = ceilTo15(ne);
+          } else {
+            ns = addMinutes(resizeOriginalStart, slotsToMinutes(Math.round(deltaY / GRID_SLOT_HEIGHT_PX)));
+            if (!isEqual(startOfDay(ns), startOfDay(resizeOriginalStart))) return;
+            ns = floorTo15(ns);
+          }
+
+          if (differenceInMinutes(ne, ns) < 15) return;
+          updateTaskTimes(resizingTaskId, ns, ne);
+        }
+      }
+    };
+
+    const onPointerUp = () => {
+      setDraggingTaskId(null);
+      setDragActive(false);
+      setResizingTaskId(null);
+      setResizeEdge(null);
+      setResizeActive(false);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    draggingTaskId,
+    dragStartY,
+    dragOriginalStart,
+    dragOriginalEnd,
+    dragActive,
+    resizingTaskId,
+    resizeEdge,
+    resizeStartY,
+    resizeOriginalEnd,
+    resizeOriginalStart,
+    resizeActive,
+    tasks,
+  ]);
+
+  // Remaining handlers (selection modal etc.)
   const finishSelection = useCallback(() => {
     if(!isSelecting || !selectStart || !selectEnd) return;
     let [start, end] = isAfter(selectStart, selectEnd) ? [selectEnd, selectStart] : [selectStart, selectEnd];

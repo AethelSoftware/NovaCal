@@ -255,7 +255,7 @@ export default function HabitsPage() {
           <button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-semibold cursor-pointer duration-200"
           >
             <Plus className="w-5 h-5" />
             Add Habit
@@ -285,7 +285,7 @@ export default function HabitsPage() {
                   onClick={() => openDetailModal(habit.id)}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-emerald-400/30 flex items-center justify-center w-10 h-10">
+                    <span className="rounded-full bg-emerald-400/30 flex items-center justify-center px-2 py-2">
                       {Icon && <Icon className="text-emerald-400 w-6 h-6" />}
                     </span>
                     <div>

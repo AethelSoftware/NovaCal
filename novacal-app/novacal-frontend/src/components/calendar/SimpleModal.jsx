@@ -165,13 +165,13 @@ export default function Modal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition"
+            className="px-4 py-2 rounded-lg border-2 border-white/20 bg-transparent hover:bg-white/20 text-white transition cursor-pointer duration-200"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium transition"
+            className="px-4 py-2 rounded-lg bg-sky-900/80 hover:bg-sky-900 text-white font-medium transition cursor-pointer duration-200"
           >
             Save Task
           </button>

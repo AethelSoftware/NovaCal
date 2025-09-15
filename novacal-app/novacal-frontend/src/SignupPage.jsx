@@ -39,10 +39,9 @@ export default function SignupPage({ onSignup }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0b0f14]">
+    <div className="min-h-screen flex items-center justify-center bg-black bg-gradient-to-br from-emerald-900/25 to-sky-900/25">
       <div
-        className="max-w-md w-full p-8 rounded-2xl shadow-lg"
-        style={{ background: "linear-gradient(180deg,#0a0c0e,#050506)" }}
+        className="max-w-md w-full p-8 rounded-2xl shadow-lg border border-white/20 bg-black"
       >
         <div className="mb-6 text-center">
           <h1 className="text-3xl font-extrabold text-white">Create an account</h1>
@@ -107,9 +106,8 @@ export default function SignupPage({ onSignup }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 rounded-lg font-semibold text-white transition-all"
+            className="w-full py-2 rounded-lg font-semibold text-white transition-all bg-gradient-to-r from-emerald-900/80 to-sky-900/80"
             style={{
-              background: "linear-gradient(90deg,#7aa2f7,#7b6cff)",
               boxShadow: "0 6px 20px rgba(123,108,255,0.18)",
             }}
           >

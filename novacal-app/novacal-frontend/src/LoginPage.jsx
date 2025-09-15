@@ -12,8 +12,7 @@ export default function LoginPage({ onLogin }) {
     setError(null);
     setLoading(true);
 
-    // --- FAKE LOGIN API MOCK --- //
-    await new Promise(r => setTimeout(r, 800)); // Simulate network delay
+    await new Promise(r => setTimeout(r, 800));
     if (email === "test@demo.com" && password === "demo1234") {
       const fakeApiResponse = {
         token: "mocked.api.token.value.12345",
@@ -29,8 +28,8 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0b0f14]">
-      <div className="max-w-md w-full p-8 rounded-2xl shadow-lg" style={{ background: "linear-gradient(180deg,#0a0c0e,#050506)" }}>
+    <div className="min-h-screen flex items-center justify-center bg-black bg-gradient-to-br from-sky-900/50 via-slate-900/50 to-indigo-900/50">
+      <div className="max-w-md w-full p-8 rounded-2xl shadow-lg bg-black border border-white/20">
         <div className="mb-6 text-center">
           <h1 className="text-3xl font-extrabold text-white">Welcome back</h1>
           <p className="mt-2 text-sm text-gray-400">Sign in to continue</p>
@@ -68,9 +67,8 @@ export default function LoginPage({ onLogin }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 rounded-lg font-semibold text-white transition-all"
+            className="w-full py-2 rounded-lg font-semibold text-white transition-all bg-gradient-to-r from-sky-900 to-emerald-900"
             style={{
-              background: "linear-gradient(90deg,#7aa2f7,#7b6cff)",
               boxShadow: "0 6px 20px rgba(123,108,255,0.18)",
             }}
           >

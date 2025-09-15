@@ -5,12 +5,14 @@ import clsx from 'clsx';
 import {
   Target,
   CalendarCheck,
-  FileClock,
+  ClockFading,
   ChartNoAxesCombined,
   LogOut,
   LogIn,
   LayoutDashboard,
+  CalendarSync
 } from 'lucide-react';
+
 
 const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
@@ -28,8 +30,8 @@ const useAuth = () => {
 const navLinks = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Calendar', href: '/calendar', icon: CalendarCheck },
-  { name: 'Hours', href: '/hours', icon: FileClock },
-  { name: 'Habits', href: '/habits', icon: FileClock },
+  { name: 'Hours', href: '/hours', icon: ClockFading },
+  { name: 'Habits', href: '/habits', icon: CalendarSync },
   { name: 'Analytics', href: '/analytics', icon: ChartNoAxesCombined },
 ];
 

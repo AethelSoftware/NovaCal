@@ -92,7 +92,7 @@ export default function AnalyticsPage() {
             <div className="mt-6 flex items-center gap-3 p-4 rounded-lg bg-emerald-500/10 border border-emerald-400/30">
               <TrendingUp className="w-6 h-6 text-emerald-400" />
               <p className="text-white font-medium">
-                Your productivity went up <span className="text-emerald-400">11%</span> this week 🚀
+                Your productivity went up <span className="text-emerald-400">11%</span> this week
               </p>
             </div>
           </div>

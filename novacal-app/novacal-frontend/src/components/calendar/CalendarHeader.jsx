@@ -29,7 +29,7 @@ export default function Header({ viewType, setViewType, startDay, setStartDay, o
     <nav className="flex items-center gap-3 w-full h-[64px] px-4 border-b border-slate-700 bg-gray-950 text-gray-100 sticky top-0 z-50">
       <button
         onClick={goPrev}
-        className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-sky-400"
+        className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-sky-900"
         aria-label="Previous"
         type="button"
       >
@@ -37,7 +37,7 @@ export default function Header({ viewType, setViewType, startDay, setStartDay, o
       </button>
       <button
         onClick={goNext}
-        className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-sky-400"
+        className="p-2 rounded-md hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-sky-900"
         aria-label="Next"
         type="button"
       >
@@ -60,7 +60,7 @@ export default function Header({ viewType, setViewType, startDay, setStartDay, o
               key={d}
               onClick={() => setViewType(d)}
               className={`${
-                viewType === d ? "bg-sky-600/70 text-white" : "hover:bg-white/5 text-slate-300"
+                viewType === d ? "bg-sky-900/80 text-white" : "hover:bg-white/5 text-sxlate-300"
               } px-3 py-1.5 transition-colors`}
               type="button"
               aria-pressed={viewType === d}
@@ -71,7 +71,7 @@ export default function Header({ viewType, setViewType, startDay, setStartDay, o
         </div>
         <button
           onClick={openCreateModal}
-          className="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-sky-700 hover:bg-sky-800 text-white text-sm shadow duration-200 cursor-pointer"
+          className="ml-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-sky-900/80 hover:bg-sky-900 text-white text-sm shadow duration-200 cursor-pointer"
           type="button"
         >
           <Plus size={16} /> New Task

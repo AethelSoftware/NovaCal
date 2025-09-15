@@ -1,6 +1,14 @@
 import React from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Clock, Target, CheckCircle2 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { Clock, Target, CheckCircle2, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 
 const dummyData = [
@@ -14,11 +22,12 @@ const dummyData = [
 ];
 
 export default function AnalyticsPage() {
-  const greeting = new Date().getHours() < 12
-    ? "Morning"
-    : new Date().getHours() < 18
-    ? "Afternoon"
-    : "Evening";
+  const greeting =
+    new Date().getHours() < 12
+      ? "Morning"
+      : new Date().getHours() < 18
+      ? "Afternoon"
+      : "Evening";
 
   return (
     <div className="min-h-screen dashboard-background p-6 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
@@ -29,51 +38,100 @@ export default function AnalyticsPage() {
             <h1 className="text-3xl md:text-4xl font-bold text-white">
               Good {greeting}
             </h1>
-            <p className="text-stone-400 mt-2 text-lg">{format(new Date(), "EEEE, MMMM d, yyyy")}</p>
+            <p className="text-stone-400 mt-2 text-lg">
+              {format(new Date(), "EEEE, MMMM d, yyyy")}
+            </p>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div className="p-6 rounded-xl shadow-lg backdrop-blur-md bg-white/10 border border-white/20">
-            <div className="flex items-center mb-3">
-              <Clock className="w-6 h-6 text-sky-400 mr-2" />
-              <h2 className="text-lg font-semibold text-white">Total Focused Time</h2>
+        {/* Main Analytics Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left: Chart */}
+          <div className="lg:col-span-2 p-6 rounded-xl shadow-lg backdrop-blur-md bg-white/10 border border-white/20">
+            <h2 className="text-xl font-semibold text-white mb-4">
+              Weekly Focus Analytics
+            </h2>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={dummyData}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.1)"
+                  />
+                  <XAxis dataKey="day" stroke="white" />
+                  <YAxis stroke="white" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(255,255,255,0.1)",
+                      border: "none",
+                      color: "white",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="focusedHours"
+                    stroke="#0ea5e9"
+                    strokeWidth={3}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="tasksCompleted"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-            <p className="text-3xl font-bold text-white">15h</p>
-            <p className="text-stone-400 mt-1">This week</p>
-          </div>
-          <div className="p-6 rounded-xl shadow-lg backdrop-blur-md bg-white/10 border border-white/20">
-            <div className="flex items-center mb-3">
-              <Target className="w-6 h-6 text-purple-400 mr-2" />
-              <h2 className="text-lg font-semibold text-white">Focus Sessions</h2>
-            </div>
-            <p className="text-3xl font-bold text-white">12</p>
-            <p className="text-stone-400 mt-1">This week</p>
-          </div>
-          <div className="p-6 rounded-xl shadow-lg backdrop-blur-md bg-white/10 border border-white/20">
-            <div className="flex items-center mb-3">
-              <CheckCircle2 className="w-6 h-6 text-emerald-400 mr-2" />
-              <h2 className="text-lg font-semibold text-white">Tasks Completed</h2>
-            </div>
-            <p className="text-3xl font-bold text-white">18</p>
-            <p className="text-stone-400 mt-1">This week</p>
-          </div>
-        </div>
 
-        {/* Analytics Chart */}
-        <div className="p-6 rounded-xl shadow-lg backdrop-blur-md bg-white/10 border border-white/20 h-96">
-          <h2 className="text-xl font-semibold text-white mb-4">Weekly Focus Analytics</h2>
-          <ResponsiveContainer width="100%" height="85%">
-            <LineChart data={dummyData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="day" stroke="white" />
-              <YAxis stroke="white" />
-              <Tooltip contentStyle={{ backgroundColor: "rgba(255,255,255,0.1)", border: "none", color: "white" }} />
-              <Line type="monotone" dataKey="focusedHours" stroke="#0ea5e9" strokeWidth={3} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="tasksCompleted" stroke="#10b981" strokeWidth={3} activeDot={{ r: 6 }} />
-            </LineChart>
-          </ResponsiveContainer>
+            {/* Overview Section */}
+            <div className="mt-6 flex items-center gap-3 p-4 rounded-lg bg-emerald-500/10 border border-emerald-400/30">
+              <TrendingUp className="w-6 h-6 text-emerald-400" />
+              <p className="text-white font-medium">
+                Your productivity went up <span className="text-emerald-400">11%</span> this week 🚀
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Stat Cards */}
+          <div className="flex flex-col gap-6">
+            <div className="p-6 rounded-xl shadow-lg backdrop-blur-md bg-white/10 border border-white/20">
+              <div className="flex items-center mb-3">
+                <Clock className="w-6 h-6 text-sky-400 mr-2" />
+                <h2 className="text-lg font-semibold text-white">
+                  Total Focused Time
+                </h2>
+              </div>
+              <p className="text-3xl font-bold text-white">15h</p>
+              <p className="text-stone-400 mt-1">This week</p>
+            </div>
+
+            <div className="p-6 rounded-xl shadow-lg backdrop-blur-md bg-white/10 border border-white/20">
+              <div className="flex items-center mb-3">
+                <Target className="w-6 h-6 text-purple-400 mr-2" />
+                <h2 className="text-lg font-semibold text-white">
+                  Focus Sessions
+                </h2>
+              </div>
+              <p className="text-3xl font-bold text-white">12</p>
+              <p className="text-stone-400 mt-1">This week</p>
+            </div>
+
+            <div className="p-6 rounded-xl shadow-lg backdrop-blur-md bg-white/10 border border-white/20">
+              <div className="flex items-center mb-3">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400 mr-2" />
+                <h2 className="text-lg font-semibold text-white">
+                  Tasks Completed
+                </h2>
+              </div>
+              <p className="text-3xl font-bold text-white">18</p>
+              <p className="text-stone-400 mt-1">This week</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

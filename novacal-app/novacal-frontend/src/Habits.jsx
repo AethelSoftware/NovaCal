@@ -4,6 +4,7 @@ import {
   Plus,
   Trash2,
   Search,
+  Save,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AddHabitModal from "./components/habits/HabitsModal";
@@ -460,13 +461,12 @@ export default function HabitsPage() {
                   className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 flex gap-2 items-center"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Delete
                 </button>
                 <button
                   onClick={() => saveHabitDetails()}
                   className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
                 >
-                  Save Changes
+                  <Save />
                 </button>
                 <button
                   onClick={() => setSelectedHabitId(null)}

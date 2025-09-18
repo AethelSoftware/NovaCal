@@ -30,9 +30,9 @@ export default function AnalyticsPage() {
       try {
         setLoading(true);
         const [fsRes, ctRes, hbRes] = await Promise.all([
-          fetch("http://localhost:5000/api/focus_sessions").then((r) => r.json()),
-          fetch("http://localhost:5000/api/completed_tasks").then((r) => r.json()),
-          fetch("http://localhost:5000/api/habits").then((r) => r.json()).catch(() => []), // optional
+          fetch("http://127.0.0.1:5000//api/focus_sessions").then((r) => r.json()),
+          fetch("http://127.0.0.1:5000//api/completed_tasks").then((r) => r.json()),
+          fetch("http://127.0.0.1:5000//api/habits").then((r) => r.json()).catch(() => []), // optional
         ]);
 
         // Normalize sessions

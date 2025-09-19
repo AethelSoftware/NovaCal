@@ -12,6 +12,7 @@ import AnalyticsPage from './Analytics';
 import HabitsPage from './Habits';
 import LoginPage from './LoginPage';
 import SignupPage from './SignupPage';
+import HomePage from './Home';
 
 import './index.css'; // Your global styles
 
@@ -50,6 +51,10 @@ const router = createBrowserRouter([
       {
         path: '/signup',
         element: <SignupPage />,
+      },
+      {
+        path: '/home',
+        element: <HomePage />,
       },
     ],
   },

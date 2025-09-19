@@ -134,7 +134,7 @@ export default function Sidebar() {
             {isHovering && <span className="truncate">Login</span>}
           </a>
         )}
-        {isHovering && <p className="text-zinc-500 text-xs mt-2 text-center">v0.1.0</p>}
+        {isHovering && <p className="text-zinc-500 text-xs mt-2 text-center">v 1.0.0</p >}
       </div>
     </aside>
   );

@@ -21,7 +21,6 @@ tasks_table = Table(
     "tasks",
     metadata,
     Column("id", Integer, primary_key=True),
-    Column("user_id", Integer, nullable=False),  # <-- add this
     Column("title", String(255), nullable=False),
     Column("start_time", DateTime, nullable=False),
     Column("end_time", DateTime, nullable=False),
@@ -32,7 +31,6 @@ tasks_table = Table(
     Column("files", Text, default=""),
     Column("parent_custom_task_id", Integer, nullable=True, default=None),
 )
-
 
 custom_tasks_table = Table(
     "custom_tasks",

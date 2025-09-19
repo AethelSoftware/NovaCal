@@ -129,13 +129,13 @@ export default function CalendarPage() {
     async function fetchData() {
       try {
         // Tasks
-        const resTasks = await fetch("http://127.0.0.1:5000/api/tasks");
+        const resTasks = await fetch("/api/tasks");
         if (!resTasks.ok) throw new Error("Failed to fetch tasks");
         const dataTasks = await resTasks.json();
         setTasks(dataTasks);
 
         // Habits
-        const resHabits = await fetch("http://127.0.0.1:5000/api/habits");
+        const resHabits = await fetch("/api/habits");
         if (!resHabits.ok) throw new Error("Failed to fetch habits");
         const dataHabits = await resHabits.json();
         const habitsMap = {};
@@ -206,7 +206,7 @@ export default function CalendarPage() {
       // optimistic update
       setTasks((prev) => prev.map((t) => (String(t.id) === String(updatedTask.id) ? updatedTask : t)));
 
-      const res = await fetch(`http://127.0.0.1:5000/api/tasks/${updatedTask.id}`, {
+      const res = await fetch(`/api/tasks/${updatedTask.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -372,7 +372,7 @@ export default function CalendarPage() {
 
   async function addNewTask(task) {
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/tasks", {
+      const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(task),
@@ -501,7 +501,7 @@ export default function CalendarPage() {
         onUpdateTask={async (updatedTask, deletedTaskId = null) => {
           if(deletedTaskId) { setTasks(prev => prev.filter(t => t.id !== deletedTaskId)); return; }
           try {
-            const res = await fetch(`http://127.0.0.1:5000/api/tasks/${updatedTask.id}`, {
+            const res = await fetch(`/api/tasks/${updatedTask.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(updatedTask),

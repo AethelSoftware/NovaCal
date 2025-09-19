@@ -1,28 +1,26 @@
-// LoginPage.jsx
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
-    await new Promise(r => setTimeout(r, 800));
-    if (email === "test@demo.com" && password === "demo1234") {
-      const fakeApiResponse = {
-        token: "mocked.api.token.value.12345",
-        user: { id: 1, email: "test@demo.com", name: "Test User" },
-      };
-      localStorage.setItem("api_token", fakeApiResponse.token);
-      if (onLogin) onLogin(fakeApiResponse.user);
-      setLoading(false);
-    } else {
-      setError("Invalid email or password");
+    try {
+      const res = await axios.post("http://127.0.0.1:5000/api/auth/login", { email, password });
+      localStorage.setItem("access_token", res.data.access_token);
+      if (onLogin) onLogin(res.data.user);
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err?.response?.data?.error || "Login failed");
+    } finally {
       setLoading(false);
     }
   }

@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function SignupPage({ onSignup }) {
   const [name, setName] = useState("");
@@ -7,35 +9,22 @@ export default function SignupPage({ onSignup }) {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
-    if (password !== confirm) {
-      setError("Passwords do not match");
-      return;
-    }
-    if (!email.includes("@") || password.length < 6 || name.trim().length === 0) {
-      setError("Please fill all fields correctly");
-      return;
-    }
+    if (password !== confirm) return setError("Passwords do not match");
     setLoading(true);
-
-    // --- FAKE SIGNUP API MOCK --- //
-    await new Promise((r) => setTimeout(r, 900)); // Simulate latency
-    const emailTaken = email.toLowerCase() === "test@demo.com";
-    if (emailTaken) {
-      setError("Account already exists for this email");
+    try {
+      const res = await axios.post("http://127.0.0.1:5000/api/auth/signup", { name, email, password });
+      if (onSignup) onSignup(res.data);
+      navigate("/login");
+    } catch (err) {
+      setError(err?.response?.data?.error || "Signup failed");
+    } finally {
       setLoading(false);
-      return;
     }
-    const fakeApiResponse = {
-      token: "mocked.api.token.signup.67890",
-      user: { id: Math.floor(Math.random() * 10000), email, name: name.trim() },
-    };
-    localStorage.setItem("api_token", fakeApiResponse.token);
-    if (onSignup) onSignup(fakeApiResponse.user);
-    setLoading(false);
   }
 
   return (

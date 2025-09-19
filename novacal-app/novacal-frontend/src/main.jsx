@@ -1,7 +1,7 @@
 // src/main.jsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 
 import MainLayout from './layouts/MainLayout';
 
@@ -16,45 +16,48 @@ import HomePage from './Home';
 
 import './index.css'; // Your global styles
 
+// Simple Auth check
+const isLoggedIn = !!localStorage.getItem("access_token");
+
 const router = createBrowserRouter([
   {
     element: <MainLayout />,
     children: [
       {
-        path: '/calendar',
-        element: <CalendarPage />,
-      },
-      {
-        path: '/dashboard',
-        element: <DashboardPage />,
-      },
-      {
         path: '/',
-        element: <DashboardPage />,
-      },
-      {
-        path: '/hours',
-        element: <HoursPage />,
-      },
-      {
-        path: '/analytics',
-        element: <AnalyticsPage />,
-      },
-      {
-        path: '/habits',
-        element: <HabitsPage />,
-      },
-      {
-        path: '/login',
-        element: <LoginPage />,
-      },
-      {
-        path: '/signup',
-        element: <SignupPage />,
+        element: isLoggedIn ? <Navigate to="/dashboard" /> : <Navigate to="/home" />,
       },
       {
         path: '/home',
-        element: <HomePage />,
+        element: !isLoggedIn ? <HomePage /> : <Navigate to="/dashboard" />,
+      },
+      {
+        path: '/dashboard',
+        element: isLoggedIn ? <DashboardPage /> : <Navigate to="/home" />,
+      },
+      {
+        path: '/calendar',
+        element: isLoggedIn ? <CalendarPage /> : <Navigate to="/home" />,
+      },
+      {
+        path: '/hours',
+        element: isLoggedIn ? <HoursPage /> : <Navigate to="/home" />,
+      },
+      {
+        path: '/analytics',
+        element: isLoggedIn ? <AnalyticsPage /> : <Navigate to="/home" />,
+      },
+      {
+        path: '/habits',
+        element: isLoggedIn ? <HabitsPage /> : <Navigate to="/home" />,
+      },
+      {
+        path: '/login',
+        element: !isLoggedIn ? <LoginPage /> : <Navigate to="/dashboard" />,
+      },
+      {
+        path: '/signup',
+        element: !isLoggedIn ? <SignupPage /> : <Navigate to="/dashboard" />,
       },
     ],
   },
@@ -62,7 +65,6 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {/* No AuthProvider or DataProvider needed for a "brand new app, no login, no nuthin" */}
     <RouterProvider router={router} />
   </React.StrictMode>
 );

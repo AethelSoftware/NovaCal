@@ -1,21 +1,36 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from sqlalchemy import Boolean, create_engine, Column, Integer, String, Text, DateTime, Table, MetaData, and_, select
+from sqlalchemy import Boolean, create_engine, Column, Integer, String, Text, DateTime, Table, MetaData, and_, select, JSON
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import os
 import traceback
-from sqlalchemy import JSON
 import json
+
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 CORS(app)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///users.db")
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
+jwt = JWTManager(app)
 engine = create_engine(DATABASE_URL, echo=True)
 metadata = MetaData()
 
-# Existing tables (tasks / custom_tasks / focus_sessions / completed_tasks) as before
+# User account table
+users_table = Table(
+    "users",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("username", String(255), unique=True, nullable=False),
+    Column("email", String(255), unique=True, nullable=False),
+    Column("password_hash", String(255), nullable=False),
+    Column("created_at", DateTime, default=datetime.now)
+)
+
+# All main tables now have user_id
 tasks_table = Table(
     "tasks",
     metadata,
@@ -29,6 +44,7 @@ tasks_table = Table(
     Column("links", Text, default=""),
     Column("files", Text, default=""),
     Column("parent_custom_task_id", Integer, nullable=True, default=None),
+    Column("user_id", Integer, nullable=False),
 )
 
 custom_tasks_table = Table(
@@ -45,6 +61,7 @@ custom_tasks_table = Table(
     Column("importance", Integer, default=2),
     Column("split_enabled", Boolean, default=False),
     Column("block_duration_minutes", Integer, default=30),
+    Column("user_id", Integer, nullable=False),
 )
 
 focus_sessions_table = Table(
@@ -55,6 +72,7 @@ focus_sessions_table = Table(
     Column("start_time", DateTime, nullable=False),
     Column("duration", Integer, nullable=False),
     Column("task_completed", Boolean, default=False),
+    Column("user_id", Integer, nullable=False),
 )
 
 completed_tasks_table = Table(
@@ -63,16 +81,17 @@ completed_tasks_table = Table(
     Column("id", Integer, primary_key=True),
     Column("task_id", Integer, nullable=False),
     Column("completion_date", DateTime, nullable=False),
+    Column("user_id", Integer, nullable=False),
 )
 
-# NEW: working_hours table
 working_hours_table = Table(
     "working_hours",
     metadata,
     Column("id", Integer, primary_key=True),
-    Column("day", String(32), nullable=False, unique=True),  # e.g. "Monday"
+    Column("day", String(32), nullable=False, unique=False),  # removed unique for per-user
     Column("start", String(8), nullable=False),  # "HH:MM"
     Column("end", String(8), nullable=False),    # "HH:MM"
+    Column("user_id", Integer, nullable=False),
 )
 
 habits_table = Table(
@@ -84,6 +103,7 @@ habits_table = Table(
     Column("icon", String(64), default="CheckCircle2"),
     Column("file", String(255), nullable=True),
     Column("schedules", JSON, nullable=False),
+    Column("user_id", Integer, nullable=False),
 )
 
 metadata.create_all(engine)
@@ -101,9 +121,51 @@ def find_free_slots(existing_tasks, day_start, day_end):
         slots.append((prev_end, day_end))
     return slots
 
+# --- Account endpoints ---
+
+@app.route("/api/register", methods=["POST"])
+def register():
+    session = Session()
+    data = request.json
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+    if not username or not email or not password:
+        return jsonify({"error": "Missing fields"}), 400
+    if session.execute(users_table.select().where(users_table.c.username == username)).first():
+        return jsonify({"error": "Username already exists"}), 409
+    password_hash = generate_password_hash(password)
+    stmt = users_table.insert().values(
+        username=username,
+        email=email,
+        password_hash=password_hash,
+        created_at=datetime.now()
+    )
+    session.execute(stmt)
+    session.commit()
+    session.close()
+    return jsonify({"message": "User registered successfully"}), 201
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    session = Session()
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+    user = session.execute(users_table.select().where(users_table.c.username == username)).first()
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({"error": "Invalid credentials"}), 401
+    access_token = create_access_token(identity=user.id)
+    session.close()
+    return jsonify({"access_token": access_token}), 200
+
+# --- All other endpoints are protected and scoped by user_id ---
+
 @app.route('/api/auto_schedule', methods=["POST"])
+@jwt_required()
 def auto_schedule():
     session = Session()
+    user_id = get_jwt_identity()
     try:
         data = request.json or {}
         task_ids = data.get("task_ids")
@@ -111,7 +173,7 @@ def auto_schedule():
             return jsonify({"error": "No task IDs to schedule."}), 400
 
         unscheduled = session.execute(
-            tasks_table.select().where(tasks_table.c.id.in_(task_ids))
+            tasks_table.select().where(and_(tasks_table.c.id.in_(task_ids), tasks_table.c.user_id == user_id))
         ).fetchall()
         if not unscheduled:
             return jsonify({"error": "No matching tasks."}), 404
@@ -124,7 +186,8 @@ def auto_schedule():
                 and_(
                     tasks_table.c.start_time >= min_start.replace(hour=0, minute=0),
                     tasks_table.c.end_time <= max_due.replace(hour=23, minute=59),
-                    ~tasks_table.c.id.in_(task_ids)
+                    ~tasks_table.c.id.in_(task_ids),
+                    tasks_table.c.user_id == user_id
                 )
             )
         ).fetchall()
@@ -183,10 +246,12 @@ def auto_schedule():
         session.close()
 
 @app.route("/api/tasks", methods=["GET"])
+@jwt_required()
 def get_tasks():
     session = Session()
+    user_id = get_jwt_identity()
     try:
-        tasks = session.execute(tasks_table.select()).fetchall()
+        tasks = session.execute(tasks_table.select().where(tasks_table.c.user_id == user_id)).fetchall()
         return jsonify([
             {
                 "id": t.id,
@@ -206,8 +271,10 @@ def get_tasks():
         session.close()
 
 @app.route("/api/tasks", methods=["POST"])
+@jwt_required()
 def create_task():
     session = Session()
+    user_id = get_jwt_identity()
     try:
         data = request.json
         title = data["name"]
@@ -226,6 +293,7 @@ def create_task():
             description=data.get("description", ""),
             links=data.get("links", ""),
             files=data.get("files", ""),
+            user_id=user_id
         )
         result = session.execute(stmt)
         new_id = result.inserted_primary_key[0]
@@ -250,11 +318,13 @@ def create_task():
         session.close()
 
 @app.route("/api/tasks/<int:task_id>", methods=["PATCH"])
+@jwt_required()
 def update_task(task_id):
     session = Session()
+    user_id = get_jwt_identity()
     try:
         data = request.json
-        task = session.execute(tasks_table.select().where(tasks_table.c.id == task_id)).first()
+        task = session.execute(tasks_table.select().where(and_(tasks_table.c.id == task_id, tasks_table.c.user_id == user_id))).first()
         if not task:
             return jsonify({"error": "Task not found"}), 404
         updates = {}
@@ -292,10 +362,12 @@ def update_task(task_id):
         session.close()
 
 @app.route("/api/tasks/<int:task_id>", methods=["DELETE"])
+@jwt_required()
 def delete_task(task_id):
     session = Session()
+    user_id = get_jwt_identity()
     try:
-        session.execute(tasks_table.delete().where(tasks_table.c.id == task_id))
+        session.execute(tasks_table.delete().where(and_(tasks_table.c.id == task_id, tasks_table.c.user_id == user_id)))
         session.commit()
         return jsonify({"message": "Task deleted."}), 200
     except Exception as e:
@@ -305,8 +377,10 @@ def delete_task(task_id):
         session.close()
 
 @app.route("/api/custom_tasks", methods=["POST"])
+@jwt_required()
 def create_custom_task():
     session = Session()
+    user_id = get_jwt_identity()
     try:
         data = request.json
         name = data["name"]
@@ -327,6 +401,7 @@ def create_custom_task():
             importance=importance,
             split_enabled=split_enabled,
             block_duration_minutes=block_duration,
+            user_id=user_id
         )
         res = session.execute(stmt)
         ct_id = res.inserted_primary_key[0]
@@ -338,7 +413,11 @@ def create_custom_task():
                 actual = int((proposed_end - current_start).total_seconds() // 60)
                 conflicts = session.execute(
                     tasks_table.select().where(
-                        (tasks_table.c.start_time < proposed_end) & (tasks_table.c.end_time > current_start)
+                        and_(
+                            tasks_table.c.start_time < proposed_end,
+                            tasks_table.c.end_time > current_start,
+                            tasks_table.c.user_id == user_id
+                        )
                     )
                 ).fetchall()
                 if conflicts:
@@ -353,7 +432,8 @@ def create_custom_task():
                     description=data.get("description", ""),
                     links=data.get("links", ""),
                     files=data.get("files", ""),
-                    parent_custom_task_id=ct_id
+                    parent_custom_task_id=ct_id,
+                    user_id=user_id
                 ))
                 remaining -= actual
                 current_start = proposed_end
@@ -366,8 +446,10 @@ def create_custom_task():
         session.close()
 
 @app.route("/api/focus_sessions", methods=["POST"])
+@jwt_required()
 def create_focus_session():
     session = Session()
+    user_id = get_jwt_identity()
     try:
         data = request.json
         task_id = data.get("task_id")
@@ -379,18 +461,20 @@ def create_focus_session():
             start_time=start_time,
             duration=duration,
             task_completed=task_completed,
+            user_id=user_id
         )
         result = session.execute(stmt)
         new_id = result.inserted_primary_key[0]
         session.commit()
         
         new_session = session.execute(focus_sessions_table.select().where(focus_sessions_table.c.id == new_id)).first()
-        task = session.execute(tasks_table.select().where(tasks_table.c.id == new_session.task_id)).first()
+        task = session.execute(tasks_table.select().where(and_(tasks_table.c.id == new_session.task_id, tasks_table.c.user_id == user_id))).first()
         
         if task_completed:
             session.execute(completed_tasks_table.insert().values(
                 task_id=task_id,
-                completion_date=datetime.now()
+                completion_date=datetime.now(),
+                user_id=user_id
             ))
             session.commit()
 
@@ -410,13 +494,15 @@ def create_focus_session():
         session.close()
 
 @app.route("/api/focus_sessions", methods=["GET"])
+@jwt_required()
 def get_focus_sessions():
     session = Session()
+    user_id = get_jwt_identity()
     try:
-        sessions = session.execute(focus_sessions_table.select()).fetchall()
+        sessions = session.execute(focus_sessions_table.select().where(focus_sessions_table.c.user_id == user_id)).fetchall()
         result = []
         for s in sessions:
-            task = session.execute(tasks_table.select().where(tasks_table.c.id == s.task_id)).first()
+            task = session.execute(tasks_table.select().where(and_(tasks_table.c.id == s.task_id, tasks_table.c.user_id == user_id))).first()
             result.append({
                 "id": s.id,
                 "task_id": s.task_id,
@@ -430,10 +516,12 @@ def get_focus_sessions():
         session.close()
 
 @app.route("/api/focus_sessions/<int:session_id>", methods=["DELETE"])
+@jwt_required()
 def delete_focus_session(session_id):
     session = Session()
+    user_id = get_jwt_identity()
     try:
-        session.execute(focus_sessions_table.delete().where(focus_sessions_table.c.id == session_id))
+        session.execute(focus_sessions_table.delete().where(and_(focus_sessions_table.c.id == session_id, focus_sessions_table.c.user_id == user_id)))
         session.commit()
         return jsonify({"message": "Focus session deleted."}), 200
     except Exception as e:
@@ -443,23 +531,25 @@ def delete_focus_session(session_id):
     finally:
         session.close()
 
-
 @app.route("/api/completed_tasks", methods=["POST"])
+@jwt_required()
 def complete_task():
     session = Session()
+    user_id = get_jwt_identity()
     try:
         data = request.json
         task_id = data.get("task_id")
         if not task_id:
             return jsonify({"error": "Task ID is required"}), 400
 
-        task = session.execute(tasks_table.select().where(tasks_table.c.id == task_id)).first()
+        task = session.execute(tasks_table.select().where(and_(tasks_table.c.id == task_id, tasks_table.c.user_id == user_id))).first()
         if not task:
             return jsonify({"error": "Task not found"}), 404
             
         stmt = completed_tasks_table.insert().values(
             task_id=task_id,
-            completion_date=datetime.fromisoformat(data.get("completion_date", datetime.now().isoformat()))
+            completion_date=datetime.fromisoformat(data.get("completion_date", datetime.now().isoformat())),
+            user_id=user_id
         )
         result = session.execute(stmt)
         session.commit()
@@ -479,13 +569,15 @@ def complete_task():
         session.close()
 
 @app.route("/api/completed_tasks", methods=["GET"])
+@jwt_required()
 def get_completed_tasks():
     session = Session()
+    user_id = get_jwt_identity()
     try:
-        completed = session.execute(completed_tasks_table.select()).fetchall()
+        completed = session.execute(completed_tasks_table.select().where(completed_tasks_table.c.user_id == user_id)).fetchall()
         result = []
         for c in completed:
-            task = session.execute(tasks_table.select().where(tasks_table.c.id == c.task_id)).first()
+            task = session.execute(tasks_table.select().where(and_(tasks_table.c.id == c.task_id, tasks_table.c.user_id == user_id))).first()
             if task:
                 result.append({
                     "id": c.id,
@@ -498,10 +590,12 @@ def get_completed_tasks():
         session.close()
 
 @app.route("/api/completed_tasks/<int:completed_task_id>", methods=["DELETE"])
+@jwt_required()
 def delete_completed_task(completed_task_id):
     session = Session()
+    user_id = get_jwt_identity()
     try:
-        session.execute(completed_tasks_table.delete().where(completed_tasks_table.c.id == completed_task_id))
+        session.execute(completed_tasks_table.delete().where(and_(completed_tasks_table.c.id == completed_task_id, completed_tasks_table.c.user_id == user_id)))
         session.commit()
         return jsonify({"message": "Completed task deleted."}), 200
     except Exception as e:
@@ -512,44 +606,44 @@ def delete_completed_task(completed_task_id):
         session.close()
 
 @app.route("/api/hours", methods=["GET"])
+@jwt_required()
 def get_hours():
     session = Session()
+    user_id = get_jwt_identity()
     try:
-        rows = session.execute(working_hours_table.select()).fetchall()
-        # return as array of { day, start, end }
+        rows = session.execute(working_hours_table.select().where(working_hours_table.c.user_id == user_id)).fetchall()
         result = [{"day": r.day, "start": r.start, "end": r.end} for r in rows]
         return jsonify(result)
     finally:
         session.close()
 
-
 @app.route("/api/hours", methods=["POST"])
+@jwt_required()
 def save_hours():
     session = Session()
+    user_id = get_jwt_identity()
     try:
         data = request.json or {}
         hours_list = data.get("hours")
         if not hours_list or not isinstance(hours_list, list):
             return jsonify({"error": "Invalid payload, expected 'hours' list."}), 400
 
-        # Basic validation: ensure day/start/end exist and times look like HH:MM
         for item in hours_list:
             if not all(k in item for k in ("day", "start", "end")):
                 return jsonify({"error": "Each item must contain day, start, end"}), 400
-            # simple time format check
             for t in ("start", "end"):
                 if not isinstance(item[t], str) or len(item[t]) < 4 or ":" not in item[t]:
                     return jsonify({"error": f"Invalid time format for {t} in {item.get('day')}"}), 400
 
-        # Upsert: delete existing rows for provided days, then insert new ones
         days = [it["day"] for it in hours_list]
-        session.execute(working_hours_table.delete().where(working_hours_table.c.day.in_(days)))
+        session.execute(working_hours_table.delete().where(and_(working_hours_table.c.day.in_(days), working_hours_table.c.user_id == user_id)))
         for it in hours_list:
             session.execute(
                 working_hours_table.insert().values(
                     day=it["day"],
                     start=it["start"],
                     end=it["end"],
+                    user_id=user_id
                 )
             )
         session.commit()
@@ -562,11 +656,12 @@ def save_hours():
         session.close()
 
 @app.route("/api/habits", methods=["GET"])
+@jwt_required()
 def get_habits():
     session = Session()
+    user_id = get_jwt_identity()
     try:
-        habits = session.execute(habits_table.select()).fetchall()
-        # convert schedules JSON column back to Python list
+        habits = session.execute(habits_table.select().where(habits_table.c.user_id == user_id)).fetchall()
         return jsonify([
             {
                 "id": h.id,
@@ -582,8 +677,10 @@ def get_habits():
         session.close()
 
 @app.route("/api/habits", methods=["POST"])
+@jwt_required()
 def create_habit():
     session = Session()
+    user_id = get_jwt_identity()
     try:
         data = request.json
         if not data.get("name") or not data.get("schedules"):
@@ -595,6 +692,7 @@ def create_habit():
             icon=data.get("icon", "CheckCircle2"),
             file=data.get("file", None),
             schedules=data["schedules"],
+            user_id=user_id
         )
         result = session.execute(stmt)
         new_id = result.inserted_primary_key[0]
@@ -615,14 +713,15 @@ def create_habit():
     finally:
         session.close()
 
-
 @app.route("/api/habits/<int:habit_id>", methods=["PATCH"])
+@jwt_required()
 def update_habit(habit_id):
     session = Session()
+    user_id = get_jwt_identity()
     try:
         data = request.json
         habit = session.execute(
-            habits_table.select().where(habits_table.c.id == habit_id)
+            habits_table.select().where(and_(habits_table.c.id == habit_id, habits_table.c.user_id == user_id))
         ).first()
 
         if not habit:
@@ -631,10 +730,9 @@ def update_habit(habit_id):
         updates = {}
 
         if "schedules" in data:
-            updates["schedules"] = data["schedules"]  # ✅ keep as list/dict
+            updates["schedules"] = data["schedules"]
         for field in ["name", "description", "icon", "file"]:
             if field in data:
-                # ✅ ensure icon is string
                 if field == "icon" and isinstance(data[field], dict):
                     updates[field] = data[field].get("name", "CheckCircle2")
                 else:
@@ -660,7 +758,7 @@ def update_habit(habit_id):
             "description": updated.description,
             "icon": updated.icon,
             "file": updated.file,
-            "schedules": updated.schedules or [],  # ✅ already deserialized
+            "schedules": updated.schedules or [],
         }), 200
 
     except Exception as e:
@@ -670,12 +768,13 @@ def update_habit(habit_id):
     finally:
         session.close()
 
-
 @app.route("/api/habits/<int:habit_id>", methods=["DELETE"])
+@jwt_required()
 def delete_habit(habit_id):
     session = Session()
+    user_id = get_jwt_identity()
     try:
-        session.execute(habits_table.delete().where(habits_table.c.id == habit_id))
+        session.execute(habits_table.delete().where(and_(habits_table.c.id == habit_id, habits_table.c.user_id == user_id)))
         session.commit()
         return jsonify({"message": "Habit deleted"}), 200
     except Exception as e:
@@ -684,8 +783,6 @@ def delete_habit(habit_id):
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()
-
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

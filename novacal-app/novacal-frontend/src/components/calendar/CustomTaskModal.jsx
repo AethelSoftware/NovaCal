@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { format, addMinutes, differenceInMinutes, setHours, setMinutes, isAfter } from "date-fns";
 import { X, ZapOff, Zap, AlertTriangle, ArrowRight } from "lucide-react";
 import { roundToNearest15 } from "../../utils/calendarUtils";
+import { authedFetch } from "../../api";
 
 export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
   const [name, setName] = useState("");
@@ -21,7 +22,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
 
   useEffect(() => {
     if (isOpen) {
-      // reset basics
       setName("");
       setDescription("");
       setLinks("");
@@ -31,13 +31,12 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
       setSplitEnabled(false);
       setBlockDuration(30);
 
-      // fetch working hours then initialize start/due suggestion
       const initWithHours = async () => {
         setLoadingHours(true);
         try {
-          const res = await fetch("/api/hours");
+          const res = await authedFetch("/api/hours");
           if (!res.ok) throw new Error("Failed to fetch hours");
-          const data = await res.json(); // array [{day, start, end}, ...]
+          const data = await res.json();
           const map = (data || []).reduce((acc, r) => {
             acc[r.day] = { start: r.start, end: r.end };
             return acc;
@@ -53,10 +52,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
             const [hEnd, mEnd] = todayHours.end.split(":").map(Number);
             const windowEnd = setMinutes(setHours(new Date(), hEnd), mEnd);
 
-            // always start at rounded now
             const suggestedStart = roundedNow;
-
-            // due = end of window if valid, otherwise +12h
             let suggestedDue = isAfter(windowEnd, suggestedStart)
               ? windowEnd
               : addMinutes(suggestedStart, 720);
@@ -80,7 +76,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
 
       initWithHours();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const timeBlocks = useMemo(() => {
@@ -153,12 +148,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
         aria-modal="true"
         aria-labelledby="new-task-modal-title"
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
           <h2 id="new-task-modal-title" className="text-xl font-semibold tracking-tight">
             Create New Task
           </h2>
-
           <div className="flex gap-2">
             <button
               type="button"
@@ -185,15 +178,12 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               <AlertTriangle className={importance === 3 ? "text-white" : "text-red-300"} size={18} />
             </button>
           </div>
-
           <button type="button" onClick={onClose} className="text-zinc-400 hover:text-red-400 transition" title="Close">
             <X size={22} />
           </button>
         </div>
 
-        {/* Scrollable content */}
         <div className="overflow-y-auto p-6 flex-1 space-y-6">
-          {/* Task Name */}
           <div>
             <label className="block text-sm text-zinc-400 mb-1">Task Name</label>
             <input
@@ -206,8 +196,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
             />
           </div>
-
-          {/* Date Range */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-zinc-400 mb-1">Start</label>
@@ -244,8 +232,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               />
             </div>
           </div>
-
-          {/* Task Length */}
           <div>
             <label className="block text-sm text-zinc-400 mb-1">Task Length (minutes)</label>
             <input
@@ -269,8 +255,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
             )}
             {loadingHours && <p className="text-sm text-zinc-500 mt-1">Loading working hours suggestion...</p>}
           </div>
-
-          {/* Description */}
           <div>
             <label className="block text-sm text-zinc-400 mb-1">Description</label>
             <textarea
@@ -280,8 +264,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
             />
           </div>
-
-          {/* Links */}
           <div>
             <label className="block text-sm text-zinc-400 mb-1">Links (comma separated)</label>
             <input
@@ -292,8 +274,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
             />
           </div>
-
-          {/* Files */}
           <div>
             <div
               className="w-full h-28 rounded-xl border-2 border-dashed border-zinc-600 flex items-center justify-center flex-col gap-2 bg-zinc-900/50 cursor-pointer hover:border-zinc-500 transition"
@@ -313,14 +293,11 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
             </div>
             {files && files.length > 0 && <p className="mt-1 text-sm text-zinc-400">{files.length} file{files.length > 1 ? "s" : ""} selected</p>}
           </div>
-
-          {/* Split Task Option */}
           <div className="space-y-4">
             <div className="flex items-center justify-between bg-zinc-900/50 p-4 rounded-xl border border-zinc-700">
               <span className="text-zinc-200 font-medium">Split task into blocks?</span>
               <input type="checkbox" checked={splitEnabled} onChange={(e) => setSplitEnabled(e.target.checked)} className="h-5 w-5 accent-sky-500" />
             </div>
-
             {splitEnabled && (
               <div className="bg-zinc-900/50 border border-zinc-700 rounded-xl p-4 space-y-4">
                 <div className="flex items-center gap-3">
@@ -340,7 +317,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
                     className="w-20 rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
                   />
                 </div>
-
                 {timeBlocks.length > 0 && (
                   <div className="max-h-40 overflow-y-auto bg-zinc-950/40 border border-zinc-800 rounded-xl p-3 text-white/90">
                     <div className="text-zinc-400 font-semibold mb-2">Task Preview</div>
@@ -362,8 +338,6 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
             )}
           </div>
         </div>
-
-        {/* Footer */}
         <div className="flex justify-end space-x-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border-2 border-white/20 bg-transparent hover:bg-white/20 text-white transition cursor-pointer duration-200">Cancel</button>
           <button type="submit" className="px-4 py-2 rounded-lg bg-sky-900/80 hover:bg-sky-900 text-white font-medium transition cursor-pointer duration-200">Save Task</button>

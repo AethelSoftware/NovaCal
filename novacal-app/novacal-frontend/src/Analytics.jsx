@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { Clock, Target, CheckCircle2, TrendingUp } from "lucide-react";
 import { format, startOfWeek, startOfMonth } from "date-fns";
+import { authedFetch } from "./api"; // <-- use your API helper
 
 export default function AnalyticsPage() {
   const [focusSessions, setFocusSessions] = useState([]);
@@ -30,9 +31,9 @@ export default function AnalyticsPage() {
       try {
         setLoading(true);
         const [fsRes, ctRes, hbRes] = await Promise.all([
-          fetch("http://127.0.0.1:5000//api/focus_sessions").then((r) => r.json()),
-          fetch("http://127.0.0.1:5000//api/completed_tasks").then((r) => r.json()),
-          fetch("http://127.0.0.1:5000//api/habits").then((r) => r.json()).catch(() => []), // optional
+          authedFetch("/api/focus_sessions").then((r) => r.json()),
+          authedFetch("/api/completed_tasks").then((r) => r.json()),
+          authedFetch("/api/habits").then((r) => r.json()).catch(() => []), // optional
         ]);
 
         // Normalize sessions

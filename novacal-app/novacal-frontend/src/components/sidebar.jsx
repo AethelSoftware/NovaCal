@@ -13,12 +13,23 @@ import {
   CalendarSync
 } from 'lucide-react';
 
-
 const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const logout = () => {
     console.log('Logging out...');
     setIsAuthenticated(false);
+    // Remove JWT and related data from localStorage
+    localStorage.removeItem("api_token");
+    localStorage.removeItem("focusTimerTimeLeft");
+    localStorage.removeItem("focusTimerIsRunning");
+    localStorage.removeItem("focusTimerSelectedTask");
+    localStorage.removeItem("focusTimerEndTimestamp");
+    localStorage.removeItem("focusTimerDuration");
+    localStorage.removeItem("focusTimerMode");
+    localStorage.removeItem("focusTimerStopwatchStart");
+    localStorage.removeItem("focusTimerExpired");
+    localStorage.removeItem("focusTimerElapsedBeforeExpire");
+    // You may want to clear more keys if your app stores more state!
   };
   const login = () => {
     console.log('Logging in...');

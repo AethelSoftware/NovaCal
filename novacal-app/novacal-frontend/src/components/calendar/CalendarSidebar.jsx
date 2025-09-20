@@ -13,6 +13,7 @@ import {
   Trash2,
   Save,
 } from "lucide-react";
+import { authedFetch } from "../../api";
 
 export default function CalendarSidebar({
   isOpen,
@@ -161,8 +162,8 @@ export default function CalendarSidebar({
     if (!selectedTask) return;
     if (!window.confirm("Delete this task permanently?")) return;
     try {
-      const res = await fetch(
-        `http://127.0.0.1:5000/api/tasks/${selectedTask.id}`,
+      const res = await authedFetch(
+        `/api/tasks/${selectedTask.id}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("Failed to delete task");

@@ -1,4 +1,3 @@
-// LoginPage.jsx
 import React, { useState } from "react";
 
 export default function LoginPage({ onLogin }) {
@@ -12,17 +11,23 @@ export default function LoginPage({ onLogin }) {
     setError(null);
     setLoading(true);
 
-    await new Promise(r => setTimeout(r, 800));
-    if (email === "test@demo.com" && password === "demo1234") {
-      const fakeApiResponse = {
-        token: "mocked.api.token.value.12345",
-        user: { id: 1, email: "test@demo.com", name: "Test User" },
-      };
-      localStorage.setItem("api_token", fakeApiResponse.token);
-      if (onLogin) onLogin(fakeApiResponse.user);
-      setLoading(false);
-    } else {
-      setError("Invalid email or password");
+    try {
+      const res = await fetch("http://127.0.0.1:5000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: email, password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.access_token) {
+        localStorage.setItem("api_token", data.access_token);
+        if (onLogin) onLogin({ email }); // You can fetch user profile after login
+        setLoading(false);
+      } else {
+        setError(data.error || "Login failed");
+        setLoading(false);
+      }
+    } catch (err) {
+      setError("Network error");
       setLoading(false);
     }
   }
@@ -81,7 +86,7 @@ export default function LoginPage({ onLogin }) {
           <a href="/signup" className="text-[#7aa2f7] underline">Create one</a>
         </div>
 
-        <style jsx>{`
+        <style>{`
           h1 { text-shadow: 0 2px 16px rgba(123,108,255,0.12); }
         `}</style>
       </div>

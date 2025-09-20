@@ -21,28 +21,43 @@ export default function SignupPage({ onSignup }) {
     }
     setLoading(true);
 
-    // --- FAKE SIGNUP API MOCK --- //
-    await new Promise((r) => setTimeout(r, 900)); // Simulate latency
-    const emailTaken = email.toLowerCase() === "test@demo.com";
-    if (emailTaken) {
-      setError("Account already exists for this email");
+    try {
+      const res = await fetch("http://127.0.0.1:5000/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: email,
+          email: email,
+          password,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // Optionally auto-login after signup
+        const loginRes = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: email, password }),
+        });
+        const loginData = await loginRes.json();
+        if (loginRes.ok && loginData.access_token) {
+          localStorage.setItem("api_token", loginData.access_token);
+          if (onSignup) onSignup({ email, name: name.trim() });
+        }
+        setLoading(false);
+      } else {
+        setError(data.error || "Signup failed");
+        setLoading(false);
+      }
+    } catch (err) {
+      setError("Network error");
       setLoading(false);
-      return;
     }
-    const fakeApiResponse = {
-      token: "mocked.api.token.signup.67890",
-      user: { id: Math.floor(Math.random() * 10000), email, name: name.trim() },
-    };
-    localStorage.setItem("api_token", fakeApiResponse.token);
-    if (onSignup) onSignup(fakeApiResponse.user);
-    setLoading(false);
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black bg-gradient-to-br from-emerald-900/25 to-sky-900/25">
-      <div
-        className="max-w-md w-full p-8 rounded-2xl shadow-lg border border-white/20 bg-black"
-      >
+      <div className="max-w-md w-full p-8 rounded-2xl shadow-lg border border-white/20 bg-black">
         <div className="mb-6 text-center">
           <h1 className="text-3xl font-extrabold text-white">Create an account</h1>
           <p className="mt-2 text-sm text-gray-400">Start using the planner</p>

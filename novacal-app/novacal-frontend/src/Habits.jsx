@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import AddHabitModal from "./components/habits/HabitsModal";
 import IconGrid from "./components/habits/IconGrid";
+import { authedFetch } from "./api"; // <-- Import your API helper
 
 const ALL_DAYS = [
   "Monday",
@@ -22,30 +23,8 @@ const ALL_DAYS = [
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const WEEKENDS = ["Saturday", "Sunday"];
 
-const DUMMY_HABITS = {
-  1: {
-    id: 1,
-    name: "Lunch Break",
-    description: "Take a mindful pause",
-    icon: CheckCircle2,
-    file: null,
-    schedules: [{ day: "Monday", start: "12:00", end: "13:00" }],
-  },
-  2: {
-    id: 2,
-    name: "Coffee Break",
-    description: "Grab a quick coffee",
-    icon: CheckCircle2,
-    file: null,
-    schedules: [
-      { day: "Monday", start: "10:00", end: "10:15" },
-      { day: "Wednesday", start: "10:00", end: "10:15" },
-    ],
-  },
-};
-
 export default function HabitsPage() {
-  const [habits, setHabits] = useState(DUMMY_HABITS);
+  const [habits, setHabits] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedHabitId, setSelectedHabitId] = useState(null);
   const [editIcon, setEditIcon] = useState(null);
@@ -62,7 +41,7 @@ export default function HabitsPage() {
     async function fetchHabits() {
       setLoading(true);
       try {
-        const res = await fetch("/api/habits");
+        const res = await authedFetch("/api/habits");
         if (!res.ok) throw new Error("Failed to load habits");
         const data = await res.json();
         if (!mounted) return;
@@ -75,7 +54,7 @@ export default function HabitsPage() {
       } catch (err) {
         console.error(err);
         setError("Error loading habits");
-        setHabits(DUMMY_HABITS);
+        setHabits({});
       } finally {
         setLoading(false);
       }
@@ -151,9 +130,8 @@ export default function HabitsPage() {
       schedules: buildSchedulesFromEdit(),
     };
     try {
-      const res = await fetch(`/api/habits/${selectedHabitId}`, {
+      const res = await authedFetch(`/api/habits/${selectedHabitId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedHabit),
       });
       if (!res.ok) throw new Error("Failed to update habit");
@@ -167,7 +145,7 @@ export default function HabitsPage() {
 
   async function handleRemoveHabit(id) {
     try {
-      const res = await fetch(`/api/habits/${id}`, { method: "DELETE" });
+      const res = await authedFetch(`/api/habits/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete habit");
       setHabits((prev) => {
         const copy = { ...prev };
@@ -195,9 +173,8 @@ export default function HabitsPage() {
 
   async function handleSaveHabit(newHabit) {
     try {
-      const res = await fetch("/api/habits", {
+      const res = await authedFetch("/api/habits", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newHabit.name,
           description: newHabit.description,

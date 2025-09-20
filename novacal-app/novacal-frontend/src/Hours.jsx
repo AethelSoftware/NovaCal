@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { authedFetch } from "./api"; // <-- use your API helper
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const weekends = ["Saturday", "Sunday"];
@@ -36,7 +37,7 @@ export default function HoursPage() {
     const fetchHours = async () => {
       setLoading(true);
       try {
-        const res = await fetch("http://127.0.0.1:5000/api/hours");
+        const res = await authedFetch("/api/hours");
         if (!res.ok) throw new Error(`Failed to load hours: ${res.statusText}`);
         const json = await res.json();
         if (!mounted) return;
@@ -82,9 +83,8 @@ export default function HoursPage() {
         start: hours[d].start,
         end: hours[d].end,
       }));
-      const res = await fetch("/api/hours", {
+      const res = await authedFetch("/api/hours", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hours: payload }),
       });
       if (!res.ok) {

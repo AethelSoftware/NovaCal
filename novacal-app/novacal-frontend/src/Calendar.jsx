@@ -19,6 +19,7 @@ import {
   PanelRightClose,
   PanelLeftClose,
   Plus,
+  CheckCircle2,
 } from "lucide-react";
 
 import {
@@ -34,8 +35,7 @@ import CalendarSidebar from "./components/calendar/CalendarSidebar";
 import Header from "./components/calendar/CalendarHeader";
 import TimeGutter from "./components/calendar/TimeGutter";
 import DayColumn from "./components/calendar/DayColumn";
-
-import { CheckCircle2 } from "lucide-react"; // habit icon for example
+import { authedFetch } from "./api";
 
 const GRID_SLOT_HEIGHT_PX = 16;
 const GRID_MINUTES_PER_SLOT = 15;
@@ -129,13 +129,13 @@ export default function CalendarPage() {
     async function fetchData() {
       try {
         // Tasks
-        const resTasks = await fetch("/api/tasks");
+        const resTasks = await authedFetch("/api/tasks");
         if (!resTasks.ok) throw new Error("Failed to fetch tasks");
         const dataTasks = await resTasks.json();
         setTasks(dataTasks);
 
         // Habits
-        const resHabits = await fetch("/api/habits");
+        const resHabits = await authedFetch("/api/habits");
         if (!resHabits.ok) throw new Error("Failed to fetch habits");
         const dataHabits = await resHabits.json();
         const habitsMap = {};
@@ -203,12 +203,10 @@ export default function CalendarPage() {
   // Persist task update to backend (PATCH) and update local state optimistically
   const onUpdateTask = async (updatedTask) => {
     try {
-      // optimistic update
       setTasks((prev) => prev.map((t) => (String(t.id) === String(updatedTask.id) ? updatedTask : t)));
 
-      const res = await fetch(`/api/tasks/${updatedTask.id}`, {
+      const res = await authedFetch(`/api/tasks/${updatedTask.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: updatedTask.name,
           description: updatedTask.description,
@@ -228,7 +226,7 @@ export default function CalendarPage() {
 
   const updateTaskTimes = (taskId, newStart, newEnd) => {
     const task = tasks.find((t) => String(t.id) === String(taskId));
-    if (!task) return; // could be a habit block – ignore
+    if (!task) return;
     const updated = {
       ...task,
       start: toLocalISOString(newStart),
@@ -237,12 +235,9 @@ export default function CalendarPage() {
     onUpdateTask(updated);
   };
 
-  // Pointer move/up handlers: re-introduced from the old calendar so drag/resize persist
   useEffect(() => {
     const onPointerMove = (e) => {
-      // Dragging tasks
       if (draggingTaskId != null) {
-        // Only handle dragging for real tasks (not habit blocks)
         const task = tasks.find((t) => String(t.id) === String(draggingTaskId));
         if (!task) return;
 
@@ -258,7 +253,6 @@ export default function CalendarPage() {
           let ns = new Date(newStart);
           let ne = addMinutes(ns, duration);
 
-          // Stay on same day
           if (!isEqual(startOfDay(ns), startOfDay(dragOriginalStart))) return;
 
           const snappedStart = floorTo15(ns);
@@ -267,7 +261,6 @@ export default function CalendarPage() {
         }
       }
 
-      // Resizing tasks
       if (resizingTaskId != null) {
         const task = tasks.find((t) => String(t.id) === String(resizingTaskId));
         if (!task) return;
@@ -288,7 +281,6 @@ export default function CalendarPage() {
             if (!isEqual(startOfDay(ns), startOfDay(resizeOriginalStart))) return;
             ns = floorTo15(ns);
           }
-
           if (differenceInMinutes(ne, ns) < 15) return;
           updateTaskTimes(resizingTaskId, ns, ne);
         }
@@ -309,7 +301,6 @@ export default function CalendarPage() {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     draggingTaskId,
     dragStartY,
@@ -325,7 +316,6 @@ export default function CalendarPage() {
     tasks,
   ]);
 
-  // Remaining handlers (selection modal etc.)
   const finishSelection = useCallback(() => {
     if(!isSelecting || !selectStart || !selectEnd) return;
     let [start, end] = isAfter(selectStart, selectEnd) ? [selectEnd, selectStart] : [selectStart, selectEnd];
@@ -372,9 +362,8 @@ export default function CalendarPage() {
 
   async function addNewTask(task) {
     try {
-      const res = await fetch("/api/tasks", {
+      const res = await authedFetch("/api/tasks", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(task),
       });
       if(!res.ok) {
@@ -492,7 +481,7 @@ export default function CalendarPage() {
       <CreateTaskModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onSubmit={async (data) => { /* your logic */ setCreateModalOpen(false); }}
+        onSubmit={async (data) => { setCreateModalOpen(false); }}
       />
       <CalendarSidebar
         isOpen={sidebarOpen}
@@ -501,9 +490,8 @@ export default function CalendarPage() {
         onUpdateTask={async (updatedTask, deletedTaskId = null) => {
           if(deletedTaskId) { setTasks(prev => prev.filter(t => t.id !== deletedTaskId)); return; }
           try {
-            const res = await fetch(`/api/tasks/${updatedTask.id}`, {
+            const res = await authedFetch(`/api/tasks/${updatedTask.id}`, {
               method: "PATCH",
-              headers: { "Content-Type": "application/json" },
               body: JSON.stringify(updatedTask),
             });
             if(!res.ok) throw new Error("Failed to update task");

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function SignupPage({ onSignup }) {
   const [name, setName] = useState("");
@@ -7,6 +8,7 @@ export default function SignupPage({ onSignup }) {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -33,18 +35,10 @@ export default function SignupPage({ onSignup }) {
       });
       const data = await res.json();
       if (res.ok) {
-        // Optionally auto-login after signup
-        const loginRes = await fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: email, password }),
-        });
-        const loginData = await loginRes.json();
-        if (loginRes.ok && loginData.access_token) {
-          localStorage.setItem("api_token", loginData.access_token);
-          if (onSignup) onSignup({ email, name: name.trim() });
-        }
+        // Optionally auto-login after signup (not required here)
+        // Redirect to login page after successful signup
         setLoading(false);
+        navigate("/login");
       } else {
         setError(data.error || "Signup failed");
         setLoading(false);

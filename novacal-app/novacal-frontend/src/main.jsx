@@ -1,7 +1,6 @@
-// src/main.jsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import MainLayout from './layouts/MainLayout';
 
@@ -16,45 +15,57 @@ import HomePage from './Home';
 
 import './index.css'; // Your global styles
 
+// Simple auth check using localStorage token
+function useIsAuthenticated() {
+  return !!localStorage.getItem("api_token");
+}
+
+// Route guard for protected pages
+function ProtectedRoute() {
+  const isAuthenticated = useIsAuthenticated();
+  const location = useLocation();
+  // If not logged in, go to /home
+  if (!isAuthenticated) {
+    return <Navigate to="/home" state={{ from: location }} replace />;
+  }
+  return <Outlet />;
+}
+
+// Route guard for public pages (home, login, signup)
+function PublicRoute() {
+  const isAuthenticated = useIsAuthenticated();
+  // If logged in, send to dashboard
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Outlet />;
+}
+
 const router = createBrowserRouter([
   {
     element: <MainLayout />,
     children: [
+      // Home, login and signup are public
       {
-        path: '/calendar',
-        element: <CalendarPage />,
+        element: <PublicRoute />,
+        children: [
+          { path: '/home', element: <HomePage /> },
+          { path: '/login', element: <LoginPage /> },
+          { path: '/signup', element: <SignupPage /> },
+        ],
       },
+
+      // All other pages are protected
       {
-        path: '/dashboard',
-        element: <DashboardPage />,
-      },
-      {
-        path: '/',
-        element: <DashboardPage />,
-      },
-      {
-        path: '/hours',
-        element: <HoursPage />,
-      },
-      {
-        path: '/analytics',
-        element: <AnalyticsPage />,
-      },
-      {
-        path: '/habits',
-        element: <HabitsPage />,
-      },
-      {
-        path: '/login',
-        element: <LoginPage />,
-      },
-      {
-        path: '/signup',
-        element: <SignupPage />,
-      },
-      {
-        path: '/home',
-        element: <HomePage />,
+        element: <ProtectedRoute />,
+        children: [
+          { path: '/calendar', element: <CalendarPage /> },
+          { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/', element: <Navigate to="/dashboard" replace /> },
+          { path: '/hours', element: <HoursPage /> },
+          { path: '/analytics', element: <AnalyticsPage /> },
+          { path: '/habits', element: <HabitsPage /> },
+        ],
       },
     ],
   },
@@ -62,7 +73,6 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {/* No AuthProvider or DataProvider needed for a "brand new app, no login, no nuthin" */}
     <RouterProvider router={router} />
   </React.StrictMode>
 );

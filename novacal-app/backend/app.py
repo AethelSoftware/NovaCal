@@ -15,6 +15,7 @@ CORS(app)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///users.db")
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=6)
 jwt = JWTManager(app)
 engine = create_engine(DATABASE_URL, echo=True)
 metadata = MetaData()

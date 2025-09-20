@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -20,8 +22,9 @@ export default function LoginPage({ onLogin }) {
       const data = await res.json();
       if (res.ok && data.access_token) {
         localStorage.setItem("api_token", data.access_token);
-        if (onLogin) onLogin({ email }); // You can fetch user profile after login
+        if (onLogin) onLogin({ email });
         setLoading(false);
+        navigate("/dashboard"); // Redirect to dashboard after login
       } else {
         setError(data.error || "Login failed");
         setLoading(false);

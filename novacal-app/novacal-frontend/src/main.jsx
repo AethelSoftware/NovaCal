@@ -1,7 +1,7 @@
 // src/main.jsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import MainLayout from './layouts/MainLayout';
 
@@ -16,48 +16,45 @@ import HomePage from './Home';
 
 import './index.css'; // Your global styles
 
-// Simple Auth check
-const isLoggedIn = !!localStorage.getItem("access_token");
-
 const router = createBrowserRouter([
   {
     element: <MainLayout />,
     children: [
       {
-        path: '/',
-        element: isLoggedIn ? <Navigate to="/dashboard" /> : <Navigate to="/home" />,
-      },
-      {
-        path: '/home',
-        element: !isLoggedIn ? <HomePage /> : <Navigate to="/dashboard" />,
+        path: '/calendar',
+        element: <CalendarPage />,
       },
       {
         path: '/dashboard',
-        element: isLoggedIn ? <DashboardPage /> : <Navigate to="/home" />,
+        element: <DashboardPage />,
       },
       {
-        path: '/calendar',
-        element: isLoggedIn ? <CalendarPage /> : <Navigate to="/home" />,
+        path: '/',
+        element: <DashboardPage />,
       },
       {
         path: '/hours',
-        element: isLoggedIn ? <HoursPage /> : <Navigate to="/home" />,
+        element: <HoursPage />,
       },
       {
         path: '/analytics',
-        element: isLoggedIn ? <AnalyticsPage /> : <Navigate to="/home" />,
+        element: <AnalyticsPage />,
       },
       {
         path: '/habits',
-        element: isLoggedIn ? <HabitsPage /> : <Navigate to="/home" />,
+        element: <HabitsPage />,
       },
       {
         path: '/login',
-        element: !isLoggedIn ? <LoginPage /> : <Navigate to="/dashboard" />,
+        element: <LoginPage />,
       },
       {
         path: '/signup',
-        element: !isLoggedIn ? <SignupPage /> : <Navigate to="/dashboard" />,
+        element: <SignupPage />,
+      },
+      {
+        path: '/home',
+        element: <HomePage />,
       },
     ],
   },
@@ -65,6 +62,7 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    {/* No AuthProvider or DataProvider needed for a "brand new app, no login, no nuthin" */}
     <RouterProvider router={router} />
   </React.StrictMode>
 );

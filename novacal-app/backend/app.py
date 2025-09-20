@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import os
 import traceback
 from sqlalchemy import JSON
-from werkzeug.security import generate_password_hash, check_password_hash
 import json
 
 app = Flask(__name__)
@@ -85,15 +84,6 @@ habits_table = Table(
     Column("icon", String(64), default="CheckCircle2"),
     Column("file", String(255), nullable=True),
     Column("schedules", JSON, nullable=False),
-)
-
-users_table = Table(
-    "users",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("name", String(255), nullable=False),
-    Column("email", String(255), unique=True, nullable=False),
-    Column("password_hash", String(255), nullable=False),
 )
 
 metadata.create_all(engine)
@@ -695,50 +685,7 @@ def delete_habit(habit_id):
     finally:
         session.close()
 
-@app.route("/api/auth/signup", methods=["POST"])
-def auth_signup():
-    session = Session()
-    try:
-        data = request.json
-        name = data.get("name")
-        email = data.get("email")
-        password = data.get("password")
-        if not all([name, email, password]):
-            return jsonify({"error": "All fields required"}), 400
-        existing = session.execute(users_table.select().where(users_table.c.email == email.lower())).first()
-        if existing:
-            return jsonify({"error": "Email already in use"}), 400
-        password_hash = generate_password_hash(password)
-        result = session.execute(users_table.insert().values(
-            name=name, email=email.lower(), password_hash=password_hash
-        ))
-        user_id = result.inserted_primary_key[0]
-        session.commit()
-        return jsonify({"id": user_id, "name": name, "email": email}), 201
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
 
-
-# --- Login ---
-@app.route("/api/auth/login", methods=["POST"])
-def auth_login():
-    session = Session()
-    try:
-        data = request.json
-        email = data.get("email", "").lower()
-        password = data.get("password", "")
-        user = session.execute(users_table.select().where(users_table.c.email == email)).first()
-        if not user or not check_password_hash(user.password_hash, password):
-            return jsonify({"error": "Invalid credentials"}), 401
-        # minimal auth token (in-memory or localStorage)
-        # For simplicity, just return user info and pretend token
-        token = f"token-{user.id}"
-        return jsonify({"access_token": token, "user": {"id": user.id, "name": user.name, "email": user.email}})
-    finally:
-        session.close()
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

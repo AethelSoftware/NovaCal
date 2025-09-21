@@ -10,7 +10,8 @@ import {
   LogOut,
   LogIn,
   LayoutDashboard,
-  CalendarSync
+  CalendarSync,
+  Hammer
 } from 'lucide-react';
 
 const useAuth = () => {
@@ -44,6 +45,7 @@ const navLinks = [
   { name: 'Hours', href: '/hours', icon: ClockFading },
   { name: 'Habits', href: '/habits', icon: CalendarSync },
   { name: 'Analytics', href: '/analytics', icon: ChartNoAxesCombined },
+  { name: 'Developer', href: '/development', icon: Hammer },
 ];
 
 export default function Sidebar() {

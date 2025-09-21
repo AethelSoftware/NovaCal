@@ -12,6 +12,7 @@ import HabitsPage from './Habits';
 import LoginPage from './LoginPage';
 import SignupPage from './SignupPage';
 import HomePage from './Home';
+import DevPage from './DevPage';
 
 import './index.css'; // Your global styles
 
@@ -65,6 +66,7 @@ const router = createBrowserRouter([
           { path: '/hours', element: <HoursPage /> },
           { path: '/analytics', element: <AnalyticsPage /> },
           { path: '/habits', element: <HabitsPage /> },
+          { path: '/development', element: <DevPage /> },
         ],
       },
     ],

@@ -207,6 +207,7 @@ export default function CalendarPage() {
 
       const res = await authedFetch(`/api/tasks/${updatedTask.id}`, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: updatedTask.name,
           description: updatedTask.description,
@@ -362,9 +363,22 @@ export default function CalendarPage() {
 
   async function addNewTask(task) {
     try {
+      // Ensure we send the proper structure without the new fields initially
+      const taskData = {
+        name: task.name,
+        start: task.start,
+        end: task.end,
+        due_time: task.due_time || task.end,
+        importance: task.importance || 2,
+        description: task.description || "",
+        links: task.links || "",
+        files: task.files || ""
+      };
+
       const res = await authedFetch("/api/tasks", {
         method: "POST",
-        body: JSON.stringify(task),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(taskData),
       });
       if(!res.ok) {
         const errData = await res.json();
@@ -481,7 +495,32 @@ export default function CalendarPage() {
       <CreateTaskModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onSubmit={async (data) => { setCreateModalOpen(false); }}
+        onSubmit={async (data) => {
+          try {
+            const res = await authedFetch("/api/custom_tasks", {
+              method: "POST",
+              body: JSON.stringify(data),
+            });
+
+            if (!res.ok) {
+              const errData = await res.json();
+              throw new Error(errData.error || "Failed to create custom task");
+            }
+
+            // Backend returns { message, id }
+            await res.json();
+
+            const resTasks = await authedFetch("/api/tasks");
+            if (!resTasks.ok) throw new Error("Failed to refresh tasks");
+            const dataTasks = await resTasks.json();
+            setTasks(dataTasks);
+          } catch (err) {
+            alert("Error creating task: " + err.message);
+            console.error(err);
+          } finally {
+            setCreateModalOpen(false);
+          }
+        }}
       />
       <CalendarSidebar
         isOpen={sidebarOpen}
@@ -492,6 +531,7 @@ export default function CalendarPage() {
           try {
             const res = await authedFetch(`/api/tasks/${updatedTask.id}`, {
               method: "PATCH",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify(updatedTask),
             });
             if(!res.ok) throw new Error("Failed to update task");

@@ -438,6 +438,24 @@ def create_custom_task():
                 ))
                 remaining -= actual
                 current_start = proposed_end
+        else:
+            task_end = overall_start_time + timedelta(minutes=total_length_minutes)
+            if task_end > overall_due_time:
+                task_end = overall_due_time  # clamp to the due time if user overestimates
+            
+            session.execute(tasks_table.insert().values(
+                title=name,
+                start_time=overall_start_time,
+                end_time=task_end,
+                due_time=overall_due_time,
+                importance=importance,
+                description=data.get("description", ""),
+                links=data.get("links", ""),
+                files=data.get("files", ""),
+                parent_custom_task_id=ct_id,
+                user_id=user_id
+            ))
+
         session.commit()
         return jsonify({"message": "Custom task created", "id": ct_id}), 201
     except Exception as e:

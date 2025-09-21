@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+"use client";
+import React, { useState, useEffect, useRef } from "react";
 import {
   CheckCircle2,
   Plus,
@@ -9,20 +10,125 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import AddHabitModal from "./components/habits/HabitsModal";
 import IconGrid from "./components/habits/IconGrid";
-import { authedFetch } from "./api"; // <-- Import your API helper
+import { authedFetch } from "./api";
 
 const ALL_DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
 ];
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const WEEKENDS = ["Saturday", "Sunday"];
 
+// --- Particle BG like Novacal ---
+function randomColor() {
+  const palette = [
+    "#93f0ff", "#818cf8", "#f472b6", "#a5b4fc",
+    "#7dd3fc", "#c084fc", "#fb7185", "#f9a8d4"
+  ];
+  return palette[Math.floor(Math.random() * palette.length)];
+}
+
+const shapes = ["circle", "rect"];
+const NUM_PARTICLES = 26;
+
+function MotionParticlesBg() {
+  const canvasRef = useRef(null);
+  const particlesRef = useRef([]);
+
+  useEffect(() => {
+    const dpr = window.devicePixelRatio || 1;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    function resize() {
+      if (!canvas) return;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
+    }
+
+    resize();
+    window.addEventListener("resize", resize);
+
+    particlesRef.current = Array.from({ length: NUM_PARTICLES }).map(() => ({
+      x: Math.random() * window.innerWidth * dpr,
+      y: Math.random() * window.innerHeight * dpr,
+      r: 18 + Math.random() * 19,
+      color: randomColor(),
+      shape: shapes[Math.random() > 0.7 ? 1 : 0],
+      v: 0.15 + Math.random() * 0.33 + Math.random() * 0.4,
+      a: (Math.random() - 0.5) * 0.15,
+      o: 0.37 + Math.random() * 0.33,
+      t: Math.random() * 360,
+    }));
+
+    let animation;
+
+    function draw() {
+      const c = canvasRef.current;
+      if (!c) return;
+      const ctx = c.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, c.width, c.height);
+
+      for (const p of particlesRef.current) {
+        ctx.save();
+        ctx.globalAlpha = p.o;
+        ctx.translate(p.x, p.y);
+        if (p.shape === "rect") ctx.rotate(((p.t += 0.002) % 360) || 0);
+        ctx.fillStyle = p.color;
+        if (p.shape === "circle") {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.r, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.rect(-p.r, -p.r, p.r * 2, p.r * 2);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+        p.y -= p.v;
+        p.x += p.a;
+        if (p.y + p.r < 0) {
+          p.y = c.height + p.r;
+          p.x = Math.random() * c.width * 0.98;
+        }
+        if (p.x < -p.r) p.x = c.width + p.r;
+        else if (p.x > c.width + p.r) p.x = -p.r;
+      }
+      animation = requestAnimationFrame(draw);
+    }
+
+    draw();
+    return () => {
+      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(animation);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 w-full h-full -z-20 pointer-events-none transition-opacity duration-700"
+      aria-hidden="true"
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        zIndex: 0,
+        pointerEvents: "none",
+        opacity: 0.37,
+        transition: "opacity 0.4s",
+      }}
+    />
+  );
+}
+
+// --- Main Page Start ---
 export default function HabitsPage() {
   const [habits, setHabits] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
@@ -52,7 +158,6 @@ export default function HabitsPage() {
         setHabits(mapped);
         setError(null);
       } catch (err) {
-        console.error(err);
         setError("Error loading habits");
         setHabits({});
       } finally {
@@ -60,12 +165,9 @@ export default function HabitsPage() {
       }
     }
     fetchHabits();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
-  // build schedules
   function buildSchedulesFromEdit() {
     switch (scheduleMode) {
       case "all":
@@ -165,7 +267,9 @@ export default function HabitsPage() {
     const usedDays = new Set(customDays.map((d) => d.day));
     const available = ALL_DAYS.filter((d) => !usedDays.has(d));
     if (available.length === 0) return;
-    setCustomDays((prev) => [...prev, { day: available[0], start: "09:00", end: "10:00" }]);
+    setCustomDays((prev) => [
+      ...prev, { day: available[0], start: "09:00", end: "10:00" },
+    ]);
   }
   function removeCustomDay(index) {
     setCustomDays((prev) => prev.filter((_, i) => i !== index));
@@ -192,7 +296,6 @@ export default function HabitsPage() {
       setHabits((prev) => ({ ...prev, [data.id]: { ...data, icon: CheckCircle2 } }));
       setModalOpen(false);
     } catch (err) {
-      console.error(err);
       setError("Error creating habit");
     }
   }
@@ -206,7 +309,14 @@ export default function HabitsPage() {
     return (
       <motion.div
         key={habit.id}
-        whileHover={{ scale: 1.03 }}
+        initial={{ opacity: 0, scale: 0.88, y: 30 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 10 }}
+        transition={{ duration: 0.33, type: "spring", bounce: 0.29 }}
+        whileHover={{
+          scale: 1.04,
+          boxShadow: "0 0 0px 4px #0ffb,0 0 36px 12px #38bdf8cc",
+        }}
         className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md
                    shadow-md hover:shadow-xl transition duration-200 cursor-pointer"
         onClick={() => openDetailModal(habit.id)}
@@ -228,57 +338,115 @@ export default function HabitsPage() {
   }
 
   return (
-    <main className="relative min-h-screen w-full habits-background p-10">
-      {/* glow overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(0,255,180,0.12),transparent_60%)] pointer-events-none"></div>
+    <main className="relative min-h-screen w-full habits-background px-0 p-14">
+      <MotionParticlesBg />
+      {/* gradient glass glow overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#2312457e] via-[#00ffc030] to-[#0a0a0ab4] opacity-70 pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(0,255,180,0.11),transparent_70%)] z-0 pointer-events-none" />
 
-      <div className="relative z-10 max-w-6xl mx-auto p-8 rounded-3xl bg-white/5 border border-white/10 
-                      backdrop-blur-lg shadow-2xl">
+      <motion.div
+        className="relative z-10 max-w-6xl mx-auto p-8 rounded-3xl bg-white/10 border border-white/10 
+        backdrop-blur-xl shadow-2xl"
+        initial={{ opacity: 0, y: 44 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1.08, delay: 0.25 }}
+      >
         <div className="flex items-center justify-between mb-10">
-          <h2 className="flex items-center text-3xl font-bold text-white drop-shadow-lg">
+          <motion.h2
+            className="flex items-center text-3xl font-bold text-white drop-shadow-lg"
+            initial={{ opacity: 0, x: -32 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.23, duration: 0.7, type: "spring", stiffness: 155 }}
+          >
             <CheckCircle2 className="w-8 h-8 mr-3 text-sky-400" />
             Daily Habits
-          </h2>
+          </motion.h2>
           <div className="flex items-center gap-3">
-            {error && <div className="text-red-400 text-sm">{error}</div>}
-            <button
+            {error && (
+              <motion.div className="text-red-400 text-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                {error}
+              </motion.div>
+            )}
+            <motion.button
               type="button"
               onClick={() => setModalOpen(true)}
               className="px-6 py-2 rounded-full font-semibold shadow-md transition border border-white/10
                          bg-gradient-to-r from-sky-600 to-blue-500 text-white hover:opacity-90"
+              whileHover={{ scale: 1.07, boxShadow: "0 6px 46px 0 #38bdf866" }}
+              transition={{ type: "spring", stiffness: 250, damping: 16 }}
             >
               <Plus className="inline w-5 h-5 mr-1" />
               Add Habit
-            </button>
+            </motion.button>
           </div>
         </div>
 
-        <div className="relative mb-10">
+        <motion.div
+          className="relative mb-10"
+          initial={{ opacity: 0, y: -18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18, duration: 0.5 }}
+        >
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
+          <motion.input
             type="text"
             placeholder="Search habits..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white 
                        placeholder-gray-400 focus:ring-2 focus:ring-sky-500 transition"
+            initial={{ opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: "100%" }}
+            transition={{ delay: 0.35, duration: 0.5 }}
           />
-        </div>
+        </motion.div>
 
-        {loading ? (
-          <p className="text-gray-400 text-center">Loading habits...</p>
-        ) : filteredHabits.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredHabits.map((habit) => renderHabitCard(habit))}
-          </div>
-        ) : (
-          <p className="text-gray-400 text-center">No habits found.</p>
-        )}
-      </div>
+        {/* Habit Cards animated mount */}
+        <AnimatePresence>
+          {loading ? (
+            <motion.p
+              className="text-gray-400 text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              Loading habits...
+            </motion.p>
+          ) : filteredHabits.length > 0 ? (
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: {
+                  transition: {
+                    staggerChildren: 0.09,
+                    delayChildren: 0.1,
+                  },
+                },
+              }}
+            >
+              {filteredHabits.map((habit) => renderHabitCard(habit))}
+            </motion.div>
+          ) : (
+            <motion.p
+              className="text-gray-400 text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              No habits found.
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
+      {/* Modal for adding */}
       <AddHabitModal open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSaveHabit} />
 
-      {/* your untouched edit modal */}
+      {/* --- EDIT MODAL --- */}
       <AnimatePresence>
         {selectedHabitId && (
           <motion.div
@@ -288,10 +456,11 @@ export default function HabitsPage() {
             className="fixed inset-0 z-50 flex items-center justify-center px-4 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ y: 40, opacity: 0 }}
+              initial={{ y: 44, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 40, opacity: 0 }}
+              exit={{ y: 44, opacity: 0 }}
               className="bg-zinc-950 rounded-2xl max-h-[85vh] w-full max-w-2xl flex flex-col shadow-2xl text-white border border-zinc-800 overflow-hidden custom-scrollbar"
+              transition={{ duration: 0.41, type: "spring", bounce: 0.16 }}
             >
               {/* Header */}
               <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
@@ -326,12 +495,10 @@ export default function HabitsPage() {
                     placeholder="Description (optional)"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm text-zinc-400 mb-1">Icon</label>
                   <IconGrid selected={editIcon} onSelect={setEditIcon} />
                 </div>
-
                 <div>
                   <label className="block text-sm text-zinc-400 mb-2">Schedules</label>
                   <select
@@ -345,7 +512,6 @@ export default function HabitsPage() {
                     <option value="custom">Custom</option>
                   </select>
                 </div>
-
                 {(scheduleMode === "all" ||
                   scheduleMode === "weekdays" ||
                   scheduleMode === "weekends") && (
@@ -355,7 +521,10 @@ export default function HabitsPage() {
                       type="time"
                       value={timeRange.start}
                       onChange={(e) =>
-                        setTimeRange((prev) => ({ ...prev, start: e.target.value }))
+                        setTimeRange((prev) => ({
+                          ...prev,
+                          start: e.target.value,
+                        }))
                       }
                       className="rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:ring-1 focus:ring-zinc-500 w-[110px]"
                     />
@@ -364,7 +533,10 @@ export default function HabitsPage() {
                       type="time"
                       value={timeRange.end}
                       onChange={(e) =>
-                        setTimeRange((prev) => ({ ...prev, end: e.target.value }))
+                        setTimeRange((prev) => ({
+                          ...prev,
+                          end: e.target.value,
+                        }))
                       }
                       className="rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:ring-1 focus:ring-zinc-500 w-[110px]"
                     />
@@ -392,18 +564,14 @@ export default function HabitsPage() {
                         <input
                           type="time"
                           value={sched.start}
-                          onChange={(e) =>
-                            updateCustomDay(index, "start", e.target.value)
-                          }
+                          onChange={(e) => updateCustomDay(index, "start", e.target.value)}
                           className="rounded-lg bg-zinc-900 border border-zinc-700 px-2 py-1 text-white"
                         />
                         <span className="text-zinc-400">to</span>
                         <input
                           type="time"
                           value={sched.end}
-                          onChange={(e) =>
-                            updateCustomDay(index, "end", e.target.value)
-                          }
+                          onChange={(e) => updateCustomDay(index, "end", e.target.value)}
                           className="rounded-lg bg-zinc-900 border border-zinc-700 px-2 py-1 text-white"
                         />
                         <button
@@ -424,8 +592,7 @@ export default function HabitsPage() {
                   </div>
                 )}
               </div>
-
-              {/* Footer */}
+              {/* Modal Footer */}
               <div className="flex justify-end gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50">
                 <button
                   onClick={() => handleRemoveHabit(selectedHabitId)}
@@ -450,7 +617,6 @@ export default function HabitsPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
     </main>
   );
 }

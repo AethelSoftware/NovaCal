@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import os
 import traceback
+from flask_jwt_extended import get_jwt, set_access_cookies, create_access_token
 import json
 
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -16,6 +17,7 @@ CORS(app)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///users.db")
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=6)
+app.config["JWT_REFRESH_EACH_REQUEST"] = True
 jwt = JWTManager(app)
 engine = create_engine(DATABASE_URL, echo=True)
 metadata = MetaData()
@@ -122,6 +124,22 @@ def find_free_slots(existing_tasks, day_start, day_end):
         slots.append((prev_end, day_end))
     return slots
 
+@app.after_request
+def refresh_expiring_jwts(response):
+    try:
+        exp_timestamp = get_jwt()["exp"]
+        now = datetime.now().timestamp()
+        # If less than 30 minutes left, refresh token
+        if exp_timestamp - now < 1800:
+            new_token = create_access_token(identity=get_jwt_identity())
+            response.set_data(json.dumps({
+                **json.loads(response.get_data(as_text=True)),
+                "access_token": new_token
+            }))
+            response.headers["Content-Type"] = "application/json"
+    except Exception:
+        pass
+    return response
 # --- Account endpoints ---
 
 @app.route("/api/register", methods=["POST"])

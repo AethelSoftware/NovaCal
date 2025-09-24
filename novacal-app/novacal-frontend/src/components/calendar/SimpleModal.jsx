@@ -109,7 +109,7 @@ export default function Modal({
             />
           </div>
 
-          {/* Files */}
+          {/* Files - will be developed in future 
           <div>
             <div
               className="w-full h-28 rounded-xl border-2 border-dashed border-zinc-600 flex items-center justify-center flex-col gap-2 bg-zinc-900/50 cursor-pointer hover:border-zinc-500 transition"
@@ -158,6 +158,7 @@ export default function Modal({
               </p>
             )}
           </div>
+          */}
         </div>
 
         {/* Footer */}

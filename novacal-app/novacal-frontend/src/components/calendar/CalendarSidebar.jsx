@@ -160,7 +160,6 @@ export default function CalendarSidebar({
 
   const handleDelete = async () => {
     if (!selectedTask) return;
-    if (!window.confirm("Delete this task permanently?")) return;
     try {
       const res = await authedFetch(
         `/api/tasks/${selectedTask.id}`,
@@ -410,7 +409,7 @@ export default function CalendarSidebar({
                   />
                 </div>
 
-                {/* Files */}
+                {/* Files - will be developed in future 
                 <div>
                   <label className="block text-sm text-zinc-400 mb-2">
                     Attach Files
@@ -447,6 +446,7 @@ export default function CalendarSidebar({
                     </p>
                   )}
                 </div>
+                */}
 
                 {/* Footer Actions */}
                 <div className="flex justify-end space-x-3 pt-4 border-t border-zinc-800">

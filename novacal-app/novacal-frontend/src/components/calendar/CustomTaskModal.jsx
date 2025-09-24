@@ -274,6 +274,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
               className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
             />
           </div>
+
+          {/* Files - will be developed in future 
           <div>
             <div
               className="w-full h-28 rounded-xl border-2 border-dashed border-zinc-600 flex items-center justify-center flex-col gap-2 bg-zinc-900/50 cursor-pointer hover:border-zinc-500 transition"
@@ -293,6 +295,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
             </div>
             {files && files.length > 0 && <p className="mt-1 text-sm text-zinc-400">{files.length} file{files.length > 1 ? "s" : ""} selected</p>}
           </div>
+          */}
+
           <div className="space-y-4">
             <div className="flex items-center justify-between bg-zinc-900/50 p-4 rounded-xl border border-zinc-700">
               <span className="text-zinc-200 font-medium">Split task into blocks?</span>

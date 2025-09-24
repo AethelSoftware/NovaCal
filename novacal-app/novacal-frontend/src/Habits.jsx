@@ -18,7 +18,6 @@ const ALL_DAYS = [
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const WEEKENDS = ["Saturday", "Sunday"];
 
-// --- Particle BG like Novacal ---
 function randomColor() {
   const palette = [
     "#93f0ff", "#818cf8", "#f472b6", "#a5b4fc",
@@ -338,7 +337,7 @@ export default function HabitsPage() {
   }
 
   return (
-    <main className="relative min-h-screen w-full habits-background px-0 p-14">
+    <main className="relative min-h-screen w-full habits-background px-10 p-14">
       <MotionParticlesBg />
       {/* gradient glass glow overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#2312457e] via-[#00ffc030] to-[#0a0a0ab4] opacity-70 pointer-events-none z-0" />

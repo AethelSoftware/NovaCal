@@ -11,8 +11,17 @@ import json
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 
+FRONTEND_ORIGIN = "https://novacalendar-0f71.onrender.com" 
+
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app, 
+    origins=[FRONTEND_ORIGIN],
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization"]
+) 
+
+
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///users.db")
 

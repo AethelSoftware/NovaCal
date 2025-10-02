@@ -13,7 +13,7 @@ export default function LoginPage({ onLogin }) {
     setError(null);
     setLoading(true);
 
-    const API_BASE_URL = import.meta.env.VITE_APP_BACKEND_URL || 'http://127.0.0.1:5000';
+    const API_BASE_URL = import.meta.env.VITE_API_BACKEND_URL || 'http://127.0.0.1:5000';
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/login`, {

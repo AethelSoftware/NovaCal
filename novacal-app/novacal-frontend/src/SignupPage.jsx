@@ -24,7 +24,7 @@ export default function SignupPage({ onSignup }) {
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/register", {
+      const res = await fetch(`${API_BASE_URL}/api/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

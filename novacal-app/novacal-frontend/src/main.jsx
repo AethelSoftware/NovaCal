@@ -86,7 +86,7 @@ const router = createBrowserRouter([
   {
     element: <MainLayout />,
     children: [
-      // Home, login and signup are public
+      // Home, login, signup and email confirmation are public
       {
         element: <PublicRoute />,
         children: [
@@ -95,6 +95,8 @@ const router = createBrowserRouter([
           { path: '/signup', element: <SignupPage /> },
         ],
       },
+      // Email confirmation page (accessible without full auth)
+      { path: '/email-confirmation', element: <EmailConfirmation /> },
 
       // All other pages are protected
       {

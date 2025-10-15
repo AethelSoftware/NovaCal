@@ -34,7 +34,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
       const initWithHours = async () => {
         setLoadingHours(true);
         try {
-          const res = await authedFetch("/api/hours");
+          const res = await authedFetch("hours");
           if (!res.ok) throw new Error("Failed to fetch hours");
           const data = await res.json();
           const map = (data || []).reduce((acc, r) => {

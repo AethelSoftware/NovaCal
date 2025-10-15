@@ -37,7 +37,7 @@ export default function HoursPage() {
     const fetchHours = async () => {
       setLoading(true);
       try {
-        const res = await authedFetch("/api/hours");
+        const res = await authedFetch("working_hours");
         if (!res.ok) throw new Error(`Failed to load hours: ${res.statusText}`);
         const json = await res.json();
         if (!mounted) return;
@@ -83,7 +83,7 @@ export default function HoursPage() {
         start: hours[d].start,
         end: hours[d].end,
       }));
-      const res = await authedFetch("/api/hours", {
+      const res = await authedFetch("working_hours", {
         method: "POST",
         body: JSON.stringify({ hours: payload }),
       });

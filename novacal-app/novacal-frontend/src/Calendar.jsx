@@ -129,13 +129,13 @@ export default function CalendarPage() {
     async function fetchData() {
       try {
         // Tasks
-        const resTasks = await authedFetch("/api/tasks");
+        const resTasks = await authedFetch("tasks");
         if (!resTasks.ok) throw new Error("Failed to fetch tasks");
         const dataTasks = await resTasks.json();
         setTasks(dataTasks);
 
         // Habits
-        const resHabits = await authedFetch("/api/habits");
+        const resHabits = await authedFetch("habits");
         if (!resHabits.ok) throw new Error("Failed to fetch habits");
         const dataHabits = await resHabits.json();
         const habitsMap = {};
@@ -205,7 +205,7 @@ export default function CalendarPage() {
     try {
       setTasks((prev) => prev.map((t) => (String(t.id) === String(updatedTask.id) ? updatedTask : t)));
 
-      const res = await authedFetch(`/api/tasks/${updatedTask.id}`, {
+      const res = await authedFetch(`tasks/${updatedTask.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -375,7 +375,7 @@ export default function CalendarPage() {
         files: task.files || ""
       };
 
-      const res = await authedFetch("/api/tasks", {
+      const res = await authedFetch("tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(taskData),
@@ -497,7 +497,7 @@ export default function CalendarPage() {
         onClose={() => setCreateModalOpen(false)}
         onSubmit={async (data) => {
           try {
-            const res = await authedFetch("/api/custom_tasks", {
+            const res = await authedFetch("custom_tasks", {
               method: "POST",
               body: JSON.stringify(data),
             });
@@ -510,7 +510,7 @@ export default function CalendarPage() {
             // Backend returns { message, id }
             await res.json();
 
-            const resTasks = await authedFetch("/api/tasks");
+            const resTasks = await authedFetch("tasks");
             if (!resTasks.ok) throw new Error("Failed to refresh tasks");
             const dataTasks = await resTasks.json();
             setTasks(dataTasks);
@@ -529,7 +529,7 @@ export default function CalendarPage() {
         onUpdateTask={async (updatedTask, deletedTaskId = null) => {
           if(deletedTaskId) { setTasks(prev => prev.filter(t => t.id !== deletedTaskId)); return; }
           try {
-            const res = await authedFetch(`/api/tasks/${updatedTask.id}`, {
+            const res = await authedFetch(`tasks/${updatedTask.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(updatedTask),

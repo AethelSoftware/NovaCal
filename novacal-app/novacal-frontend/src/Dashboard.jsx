@@ -204,13 +204,18 @@ export default function Dashboard() {
       setError(null);
       try {
         const [tasksRes, sessionsRes, completedRes] = await Promise.all([
-          authedFetch(`/api/tasks`, { signal }),
-          authedFetch(`/api/focus_sessions`, { signal }),
-          authedFetch(`/api/completed_tasks`, { signal }),
+          authedFetch(`tasks`, { signal }),
+          authedFetch(`focus_sessions`, { signal }),
+          authedFetch(`completed_tasks`, { signal }),
         ]);
-        if (!tasksRes.ok) throw new Error(`Tasks HTTP ${tasksRes.status}`);
-        if (!sessionsRes.ok) throw new Error(`Sessions HTTP ${sessionsRes.status}`);
-        if (!completedRes.ok) throw new Error(`Completed Tasks HTTP ${completedRes.status}`);
+
+        // FIX 1: Add a fallback for status
+        if (!tasksRes.ok) 
+            throw new Error(`Tasks HTTP ${tasksRes.status || 'Unknown Error'}`); 
+        if (!sessionsRes.ok) 
+            throw new Error(`Sessions HTTP ${sessionsRes.status || 'Unknown Error'}`);
+        if (!completedRes.ok) 
+            throw new Error(`Completed Tasks HTTP ${completedRes.status || 'Unknown Error'}`);
         const tasksData = await tasksRes.json();
         const sessionsData = await sessionsRes.json();
         const completedData = await completedRes.json();
@@ -243,7 +248,7 @@ export default function Dashboard() {
       } catch (e) {
         if (e.name !== "AbortError") {
           console.error("Failed to fetch data:", e);
-          setError("Failed to load data.");
+          setError(e.message || "Failed to load data.");
         }
       } finally {
         setLoading(false);
@@ -336,7 +341,7 @@ export default function Dashboard() {
       }
       const durationInMinutes = Math.max(0, Math.floor(elapsedSeconds / 60));
       try {
-        const res = await authedFetch(`/api/focus_sessions`, {
+        const res = await authedFetch(`focus_sessions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -377,7 +382,7 @@ export default function Dashboard() {
         return;
       }
       try {
-        const res = await authedFetch(`/api/completed_tasks`, {
+        const res = await authedFetch(`completed_tasks`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ task_id: taskId, completion_date: new Date().toISOString() }),
@@ -403,9 +408,9 @@ export default function Dashboard() {
     if (!completed) return;
     setUndoingTask(completed.task_id);
     try {
-      const res = await authedFetch(`/api/completed_tasks/${completed.id}`, { method: "DELETE" });
+      const res = await authedFetch(`completed_tasks/${completed.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const allTasksRes = await authedFetch(`/api/tasks`);
+      const allTasksRes = await authedFetch(`tasks`);
       if (!allTasksRes.ok) throw new Error(`HTTP ${allTasksRes.status}`);
       const allTasks = await allTasksRes.json();
       const undone = allTasks.find((t) => t.id === completed.task_id);
@@ -424,7 +429,7 @@ export default function Dashboard() {
     setRemovingSession(sessionId);
     setTimeout(async () => {
       try {
-        const res = await authedFetch(`/api/focus_sessions/${sessionId}`, { method: "DELETE" });
+        const res = await authedFetch(`focus_sessions/${sessionId}`, { method: "DELETE" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setFocusSessions((prev) => prev.filter((s) => s.id !== sessionId));
       } catch (e) {

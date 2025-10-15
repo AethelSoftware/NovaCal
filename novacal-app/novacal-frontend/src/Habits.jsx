@@ -146,7 +146,7 @@ export default function HabitsPage() {
     async function fetchHabits() {
       setLoading(true);
       try {
-        const res = await authedFetch("/api/habits");
+        const res = await authedFetch("habits");
         if (!res.ok) throw new Error("Failed to load habits");
         const data = await res.json();
         if (!mounted) return;
@@ -231,7 +231,7 @@ export default function HabitsPage() {
       schedules: buildSchedulesFromEdit(),
     };
     try {
-      const res = await authedFetch(`/api/habits/${selectedHabitId}`, {
+      const res = await authedFetch(`habits/${selectedHabitId}`, {
         method: "PATCH",
         body: JSON.stringify(updatedHabit),
       });
@@ -246,7 +246,7 @@ export default function HabitsPage() {
 
   async function handleRemoveHabit(id) {
     try {
-      const res = await authedFetch(`/api/habits/${id}`, { method: "DELETE" });
+      const res = await authedFetch(`habits/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete habit");
       setHabits((prev) => {
         const copy = { ...prev };
@@ -276,7 +276,7 @@ export default function HabitsPage() {
 
   async function handleSaveHabit(newHabit) {
     try {
-      const res = await authedFetch("/api/habits", {
+      const res = await authedFetch("habits", {
         method: "POST",
         body: JSON.stringify({
           name: newHabit.name,

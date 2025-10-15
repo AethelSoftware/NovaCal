@@ -162,7 +162,7 @@ export default function CalendarSidebar({
     if (!selectedTask) return;
     try {
       const res = await authedFetch(
-        `/api/tasks/${selectedTask.id}`,
+        `tasks/${selectedTask.id}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("Failed to delete task");

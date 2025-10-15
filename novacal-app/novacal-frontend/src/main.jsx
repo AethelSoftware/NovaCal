@@ -45,8 +45,17 @@ function useIsAuthenticated() {
 
 // Route guard for protected pages
 function ProtectedRoute() {
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated, loading } = useIsAuthenticated();
   const location = useLocation();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500"></div>
+      </div>
+    );
+  }
+  
   // If not logged in, go to /home
   if (!isAuthenticated) {
     return <Navigate to="/home" state={{ from: location }} replace />;
@@ -56,7 +65,16 @@ function ProtectedRoute() {
 
 // Route guard for public pages (home, login, signup)
 function PublicRoute() {
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated, loading } = useIsAuthenticated();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500"></div>
+      </div>
+    );
+  }
+  
   // If logged in, send to dashboard
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;

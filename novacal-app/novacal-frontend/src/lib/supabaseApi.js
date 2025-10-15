@@ -6,6 +6,21 @@ export const getCurrentUser = async () => {
   return user;
 };
 
+// TIMEZONE HELPERS
+// Convert UTC timestamp from DB to local ISO string (what frontend expects)
+const utcToLocal = (utcString) => {
+  if (!utcString) return null;
+  const date = new Date(utcString);
+  return date.toISOString();
+};
+
+// Convert local ISO string to UTC for DB storage
+const localToUTC = (localString) => {
+  if (!localString) return null;
+  const date = new Date(localString);
+  return date.toISOString();
+};
+
 // Tasks API
 export const getTasks = async () => {
   const { data, error } = await supabase
@@ -15,11 +30,11 @@ export const getTasks = async () => {
   
   if (error) throw error;
   
-  // Transform to match frontend format
+  // Transform to match frontend format - keep as-is since dates are already ISO strings
   return data.map(task => ({
     id: task.id,
     name: task.title,
-    start: task.start_time,
+    start: task.start_time, // Already in ISO format
     end: task.end_time,
     due_time: task.due_time,
     importance: task.importance,
@@ -33,12 +48,13 @@ export const getTasks = async () => {
 export const createTask = async (taskData) => {
   const user = await getCurrentUser();
   
+  // Ensure dates are in proper ISO format for Supabase
   const { data, error } = await supabase
     .from('tasks')
     .insert([{
       user_id: user.id,
       title: taskData.name,
-      start_time: taskData.start,
+      start_time: taskData.start, // Pass through as-is
       end_time: taskData.end,
       due_time: taskData.due_time || taskData.end,
       importance: taskData.importance || 2,
@@ -67,6 +83,8 @@ export const createTask = async (taskData) => {
 
 export const updateTask = async (taskId, updates) => {
   const dbUpdates = {};
+  
+  // Map frontend field names to database field names
   if (updates.name !== undefined) dbUpdates.title = updates.name;
   if (updates.start !== undefined) dbUpdates.start_time = updates.start;
   if (updates.end !== undefined) dbUpdates.end_time = updates.end;
@@ -436,10 +454,6 @@ export const deleteHabit = async (habitId) => {
 
 // Auto-schedule API (complex logic - might need edge function)
 export const autoScheduleTasks = async (taskIds) => {
-  // This is a complex function that was in the backend
-  // For now, we'll implement a simplified version
-  // In production, this should be an edge function
-  
   const { data: tasks, error } = await supabase
     .from('tasks')
     .select('*')
@@ -448,7 +462,6 @@ export const autoScheduleTasks = async (taskIds) => {
   if (error) throw error;
   
   // Simplified auto-scheduling logic
-  // You might want to create a Supabase Edge Function for this
   const scheduled = [];
   
   for (const task of tasks) {

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from './lib/supabaseClient';
 
-export default function SignupPage({ onSignup }) {
+export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,40 +14,45 @@ export default function SignupPage({ onSignup }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    
     if (password !== confirm) {
       setError("Passwords do not match");
       return;
     }
+    
     if (!email.includes("@") || password.length < 6 || name.trim().length === 0) {
-      setError("Please fill all fields correctly");
+      setError("Please fill all fields correctly (password must be at least 6 characters)");
       return;
     }
+    
     setLoading(true);
 
-    const API_BASE_URL = import.meta.env.VITE_API_BACKEND_URL || 'http://127.0.0.1:5000';
-
     try {
-      const res = await fetch(`${API_BASE_URL}/api/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: email,
-          email: email,
-          password,
-        }),
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+          },
+          emailRedirectTo: `${window.location.origin}/dashboard`
+        }
       });
-      const data = await res.json();
-      if (res.ok) {
-        // Optionally auto-login after signup (not required here)
-        // Redirect to login page after successful signup
+
+      if (signUpError) {
+        setError(signUpError.message);
         setLoading(false);
-        navigate("/login");
-      } else {
-        setError(data.error || "Signup failed");
-        setLoading(false);
+        return;
+      }
+
+      if (data?.user) {
+        // Store email for resend functionality
+        localStorage.setItem('pending_email', email);
+        // Redirect to email confirmation page
+        navigate('/email-confirmation');
       }
     } catch (err) {
-      setError("Network error");
+      setError("Network error: " + err.message);
       setLoading(false);
     }
   }
@@ -96,6 +102,7 @@ export default function SignupPage({ onSignup }) {
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full rounded-md px-3 py-2 bg-[#0f1720] border border-[#1f2a37] text-white placeholder-gray-500 focus:outline-none"
               autoComplete="new-password"
+              placeholder="Min. 6 characters"
             />
           </label>
 
@@ -109,6 +116,7 @@ export default function SignupPage({ onSignup }) {
               onChange={(e) => setConfirm(e.target.value)}
               className="mt-1 w-full rounded-md px-3 py-2 bg-[#0f1720] border border-[#1f2a37] text-white placeholder-gray-500 focus:outline-none"
               autoComplete="new-password"
+              placeholder="Re-enter password"
             />
           </label>
 
@@ -117,7 +125,7 @@ export default function SignupPage({ onSignup }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 rounded-lg font-semibold text-white transition-all bg-gradient-to-r from-emerald-900/80 to-sky-900/80"
+            className="w-full py-2 rounded-lg font-semibold text-white transition-all bg-gradient-to-r from-emerald-900/80 to-sky-900/80 hover:from-emerald-800/80 hover:to-sky-800/80"
             style={{
               boxShadow: "0 6px 20px rgba(123,108,255,0.18)",
             }}

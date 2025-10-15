@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from './lib/supabaseClient';
 
-export default function LoginPage({ onLogin }) {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -13,26 +14,34 @@ export default function LoginPage({ onLogin }) {
     setError(null);
     setLoading(true);
 
-    const API_BASE_URL = import.meta.env.VITE_API_BACKEND_URL || 'http://127.0.0.1:5000';
-
     try {
-      const response = await fetch(`${API_BASE_URL}/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: email, password }),
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      const data = await res.json();
-      if (res.ok && data.access_token) {
-        localStorage.setItem("api_token", data.access_token);
-        if (onLogin) onLogin({ email });
+
+      if (signInError) {
+        setError(signInError.message);
         setLoading(false);
-        navigate("/dashboard"); // Redirect to dashboard after login
-      } else {
-        setError(data.error || "Login failed");
+        return;
+      }
+
+      if (data?.user) {
+        // Check if email is confirmed
+        if (!data.user.email_confirmed_at) {
+          setError("Please confirm your email before logging in.");
+          localStorage.setItem('pending_email', email);
+          setLoading(false);
+          setTimeout(() => navigate('/email-confirmation'), 2000);
+          return;
+        }
+
+        // Successful login
         setLoading(false);
+        navigate("/dashboard");
       }
     } catch (err) {
-      setError("Network error");
+      setError("Network error: " + err.message);
       setLoading(false);
     }
   }
@@ -77,7 +86,7 @@ export default function LoginPage({ onLogin }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 rounded-lg font-semibold text-white transition-all bg-gradient-to-r from-sky-900 to-emerald-900"
+            className="w-full py-2 rounded-lg font-semibold text-white transition-all bg-gradient-to-r from-sky-900 to-emerald-900 hover:from-sky-800 hover:to-emerald-800"
             style={{
               boxShadow: "0 6px 20px rgba(123,108,255,0.18)",
             }}
@@ -87,7 +96,7 @@ export default function LoginPage({ onLogin }) {
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          <span>Don’t have an account? </span>
+          <span>Don't have an account? </span>
           <a href="/signup" className="text-[#7aa2f7] underline">Create one</a>
         </div>
 

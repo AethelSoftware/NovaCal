@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet, useLocation } from 'react-router-dom';
 
@@ -13,12 +13,34 @@ import LoginPage from './LoginPage';
 import SignupPage from './SignupPage';
 import HomePage from './Home';
 import DevPage from './DevPage';
+import EmailConfirmation from './EmailConfirmation';
+
+import { supabase } from './lib/supabaseClient';
 
 import './index.css'; // Your global styles
 
-// Simple auth check using localStorage token
+// Auth check using Supabase session
 function useIsAuthenticated() {
-  return !!localStorage.getItem("api_token");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session?.user?.email_confirmed_at);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session?.user?.email_confirmed_at);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return { isAuthenticated, loading };
 }
 
 // Route guard for protected pages

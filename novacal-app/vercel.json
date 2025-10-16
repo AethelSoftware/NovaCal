@@ -1,8 +1,10 @@
 {
+  "buildCommand": "cd novacal-frontend && npm install && npm run build",
+  "outputDirectory": "novacal-frontend/dist",
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/"
+      "destination": "/index.html"
     }
   ]
 }

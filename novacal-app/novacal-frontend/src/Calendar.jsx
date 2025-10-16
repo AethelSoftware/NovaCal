@@ -201,8 +201,17 @@ export default function CalendarPage() {
   const slotsToMinutes = (slots) => slots * GRID_MINUTES_PER_SLOT;
 
   // Persist task update to backend (PATCH) and update local state optimistically
+  // Replace the onUpdateTask function in Calendar.jsx (around line 189)
+
   const onUpdateTask = async (updatedTask) => {
     try {
+      console.log('=== UPDATE TASK DEBUG ===');
+      console.log('Original task start:', updatedTask.start);
+      console.log('Original task end:', updatedTask.end);
+      console.log('Task start as Date:', new Date(updatedTask.start));
+      console.log('Task end as Date:', new Date(updatedTask.end));
+      
+      // Optimistically update UI
       setTasks((prev) => prev.map((t) => (String(t.id) === String(updatedTask.id) ? updatedTask : t)));
 
       const res = await authedFetch(`tasks/${updatedTask.id}`, {
@@ -216,8 +225,19 @@ export default function CalendarPage() {
           end: updatedTask.end,
         }),
       });
-      if (!res.ok) throw new Error("Failed to update task");
+      
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to update task");
+      }
+      
       const fresh = await res.json();
+      console.log('Fresh from DB start:', fresh.start);
+      console.log('Fresh from DB end:', fresh.end);
+      console.log('Fresh start as Date:', new Date(fresh.start));
+      console.log('Fresh end as Date:', new Date(fresh.end));
+      console.log('=========================');
+      
       setTasks((prev) => prev.map((t) => (String(t.id) === String(fresh.id) ? fresh : t)));
     } catch (err) {
       console.error("Error updating task:", err);

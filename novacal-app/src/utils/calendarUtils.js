@@ -67,7 +67,7 @@ export function toLocalISOString(date) {
   
   // Format as ISO string but treat local time as UTC
   // This way, 2:00 PM local becomes "2024-01-15T14:00:00.000Z" in the database
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}Z`;
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}`;
 }
 
 /**

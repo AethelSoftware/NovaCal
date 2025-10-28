@@ -38,36 +38,16 @@ export function ceilTo15(date) {
 }
 
 /**
- * CRITICAL FIX: Converts a Date to ISO string preserving LOCAL time as if it were UTC
- * This prevents double timezone conversion when saving to Supabase
- * 
- * Problem: When you drag a task at 2:00 PM local time:
- * - JavaScript Date object represents 2:00 PM in local timezone
- * - .toISOString() converts to UTC (e.g., 6:00 PM UTC if you're UTC-4)
- * - Supabase stores as 6:00 PM
- * - When you read it back, it shows as 2:00 PM again (but stored as 6:00 PM UTC)
- * - On next drag, it uses the 6:00 PM time, making it appear to jump
- * 
- * Solution: Store the LOCAL time as-is without timezone conversion
+ * Converts a Date object to a standard ISO 8601 string in UTC.
+ * This is the correct way to handle dates with a `TIMESTAMPTZ` database column.
+ * The browser and database will handle the UTC-to-local and local-to-UTC conversions.
  */
 export function toLocalISOString(date) {
   if (!date) return null;
-  
-  // If it's already a string, parse it first
+  // If it's already a string, parse it first to ensure it's a valid Date object
   const d = typeof date === 'string' ? new Date(date) : new Date(date);
-  
-  // Get the local time components
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  const seconds = String(d.getSeconds()).padStart(2, '0');
-  const ms = String(d.getMilliseconds()).padStart(3, '0');
-  
-  // Format as ISO string but treat local time as UTC
-  // This way, 2:00 PM local becomes "2024-01-15T14:00:00.000Z" in the database
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}`;
+  // .toISOString() correctly converts the date to a string in the UTC timezone.
+  return d.toISOString();
 }
 
 /**
@@ -102,6 +82,3 @@ export function parseTimeString(timeStr, baseDate = new Date()) {
 export function isMultiple15(date) {
   return date.getMinutes() % 15 === 0;
 }
-
-
-

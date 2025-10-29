@@ -17,7 +17,9 @@ import {
   getHabits,
   createHabit,
   updateHabit,
-  deleteHabit
+  deleteHabit,
+  getWorkingHours,
+  saveWorkingHours
 } from './lib/supabaseApi';
 
 /**
@@ -55,6 +57,16 @@ export async function authedFetch(endpoint, options = {}) {
         const data = await createTask(body);
         return createMockResponse(data);
       }
+    }
+    
+    if (endpoint === 'working_hours') {
+        if (method === 'GET') {
+            const data = await getWorkingHours();
+            return createMockResponse(data);
+        } else if (method === 'POST') {
+            const data = await saveWorkingHours(body.hours);
+            return createMockResponse(data);
+        }
     }
 
     if (endpoint === 'focus_sessions') {

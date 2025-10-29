@@ -376,26 +376,14 @@ export const getWorkingHours = async () => {
 export const saveWorkingHours = async (hours) => {
   const user = await getCurrentUser();
   
-  // Delete existing hours for these days
-  const days = hours.map(h => h.day);
-  await supabase
-    .from('working_hours')
-    .delete()
-    .in('day', days);
-  
-  // Insert new hours
-  const hoursData = hours.map(h => ({
-    user_id: user.id,
-    day: h.day,
-    start: h.start,
-    end: h.end,
-  }));
-  
-  const { error } = await supabase
-    .from('working_hours')
-    .insert(hoursData);
-  
+  const { error } = await supabase.from('working_hours').delete().eq('user_id', user.id);
   if (error) throw error;
+
+  const insertData = hours.map(h => ({ ...h, user_id: user.id }));
+  
+  const { error: insertError } = await supabase.from('working_hours').insert(insertData);
+  if (insertError) throw insertError;
+  
   return { message: 'Hours saved' };
 };
 

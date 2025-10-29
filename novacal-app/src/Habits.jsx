@@ -7,7 +7,7 @@ import {
   Search,
   Save,
 } from "lucide-react";
-
+import { motion, AnimatePresence } from "framer-motion";
 import AddHabitModal from "./components/habits/HabitsModal";
 import IconGrid from "./components/habits/IconGrid";
 import { authedFetch } from "./api";
@@ -171,11 +171,11 @@ export default function HabitsPage() {
         body: JSON.stringify({
           name: newHabit.name,
           description: newHabit.description,
-          icon: "CheckCircle2",
+          icon: newHabit.icon.name,
           schedules: newHabit.days.map((day) => ({
             day,
-            start: "09:00",
-            end: "10:00",
+            start: newHabit.startTime,
+            end: newHabit.endTime,
           })),
           file: newHabit.file,
         }),
@@ -196,260 +196,209 @@ export default function HabitsPage() {
   function renderHabitCard(habit) {
     const Icon = habit.icon;
     return (
-      <div
+      <motion.div
         key={habit.id}
+        layout
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ duration: 0.2, type: "spring", bounce: 0.2 }}
         className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md
-                   shadow-md hover:shadow-xl transition duration-200 cursor-pointer"
+                   shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer"
         onClick={() => openDetailModal(habit.id)}
       >
         <div className="flex items-center gap-3 mb-2">
-          <span className="rounded-full bg-emerald-400/20 flex items-center justify-center p-2">
+          <span className="rounded-full bg-emerald-400/10 flex items-center justify-center p-2">
             {Icon && <Icon className="text-emerald-400 w-6 h-6" />}
           </span>
           <div>
             <p className="text-white font-semibold text-lg">{habit.name}</p>
-            <p className="text-gray-400 text-sm">{habit.schedules.map((s) => s.day).join(", ")}</p>
+            <p className="text-gray-400 text-sm">{habit.schedules.map((s) => s.day.substring(0,3)).join(", ")}</p>
           </div>
         </div>
         {habit.description && (
           <p className="text-gray-300 text-sm line-clamp-2">{habit.description}</p>
         )}
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <main className="relative min-h-screen w-full habits-background px-10 p-14">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#2312457e] via-[#00ffc030] to-[#0a0a0ab4] opacity-70 pointer-events-none z-0" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(0,255,180,0.11),transparent_70%)] z-0 pointer-events-none" />
+    <main className="relative min-h-screen w-full habits-background px-10 py-14">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#2312457e] via-[#00ffc030] to-[#0a0a0ab4] opacity-70 pointer-events-none -z-10" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(0,255,180,0.11),transparent_70%)] -z-10 pointer-events-none" />
 
-      <div
-        className="relative z-10 max-w-6xl mx-auto p-8 rounded-3xl bg-white/10 border border-white/10 
-        backdrop-blur-xl shadow-2xl"
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+        className="relative z-10 max-w-6xl mx-auto"
       >
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center justify-between mb-8">
           <h2
             className="flex items-center text-3xl font-bold text-white drop-shadow-lg"
           >
             <CheckCircle2 className="w-8 h-8 mr-3 text-sky-400" />
             Daily Habits
           </h2>
-          <div className="flex items-center gap-3">
-            {error && (
-              <div className="text-red-400 text-sm">
-                {error}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="px-6 py-2 rounded-full font-semibold shadow-md transition border border-white/10
-                         bg-gradient-to-r from-sky-600 to-blue-500 text-white hover:opacity-90"
-            >
-              <Plus className="inline w-5 h-5 mr-1" />
-              Add Habit
-            </button>
-          </div>
+          <motion.button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-5 py-2 rounded-full font-semibold shadow-md transition-colors border border-white/10
+                       bg-sky-600 hover:bg-sky-700 text-white"
+          >
+            <Plus className="inline w-5 h-5 mr-1" />
+            Add Habit
+          </motion.button>
         </div>
 
-        <div
-          className="relative mb-10"
-        >
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <div className="relative mb-8">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
             placeholder="Search habits..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 rounded-lg bg-black/40 border border-white/20 text-white 
-                       placeholder-gray-400 focus:ring-2 focus:ring-sky-500 transition"
+            className="w-full pl-12 pr-4 py-2.5 rounded-lg bg-black/30 border border-white/20 text-white 
+                       placeholder-gray-400 focus:ring-2 focus:ring-sky-500 transition-all"
           />
         </div>
 
-        {loading ? (
-          <p
-            className="text-gray-400 text-center"
-          >
-            Loading habits...
-          </p>
-        ) : filteredHabits.length > 0 ? (
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {filteredHabits.map((habit) => renderHabitCard(habit))}
-          </div>
-        ) : (
-          <p
-            className="text-gray-400 text-center"
-          >
-            No habits found.
-          </p>
-        )}
-      </div>
+        <AnimatePresence>
+          {loading ? (
+            <motion.p
+              className="text-gray-400 text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              Loading habits...
+            </motion.p>
+          ) : filteredHabits.length > 0 ? (
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+              variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
+              initial="hidden"
+              animate="visible"
+            >
+              {filteredHabits.map((habit) => renderHabitCard(habit))}
+            </motion.div>
+          ) : (
+            <motion.div initial={{opacity: 0}} animate={{opacity: 1}} className="text-center py-10">
+              <p className="text-gray-300 text-lg mb-2">No habits yet!</p>
+              <p className="text-gray-400">Click 'Add Habit' to get started.</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
-      {/* Modal for adding */}
       <AddHabitModal open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSaveHabit} />
 
-      {/* --- EDIT MODAL --- */}
-      {selectedHabitId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 backdrop-blur-sm">
-          <div
-            className="bg-zinc-950 rounded-2xl max-h-[85vh] w-full max-w-2xl flex flex-col shadow-2xl text-white border border-zinc-800 overflow-hidden custom-scrollbar"
+      <AnimatePresence>
+        {selectedHabitId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-4 backdrop-blur-sm"
+            onClick={() => setSelectedHabitId(null)}
           >
-            {/* Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
-              <h3 className="text-xl font-semibold text-white">Edit Habit</h3>
-              <button
-                onClick={() => setSelectedHabitId(null)}
-                className="text-zinc-400 hover:text-red-400 transition"
-                title="Close"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Scrollable content */}
-            <div className="overflow-y-auto flex-1 p-6 space-y-6">
-              <div>
-                <label className="block text-sm text-zinc-400 mb-1">Name</label>
-                <p className="font-medium text-lg text-white">
-                  {habits[selectedHabitId].name}
-                </p>
+            <motion.div
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 30, opacity: 0 }}
+              transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+              className="bg-zinc-950 rounded-2xl max-h-[85vh] w-full max-w-2xl flex flex-col shadow-2xl text-white border border-zinc-800 overflow-hidden custom-scrollbar"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
+                <h3 className="text-xl font-semibold text-white">Edit Habit</h3>
+                <button onClick={() => setSelectedHabitId(null)} className="text-zinc-400 hover:text-red-400 transition" title="Close">✕</button>
               </div>
 
-              <div>
-                <label className="block text-sm text-zinc-400 mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
-                  placeholder="Description (optional)"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-zinc-400 mb-1">Icon</label>
-                <IconGrid selected={editIcon} onSelect={setEditIcon} />
-              </div>
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Schedules</label>
-                <select
-                  value={scheduleMode}
-                  onChange={(e) => setScheduleMode(e.target.value)}
-                  className="rounded-lg bg-zinc-900 border border-zinc-700 px-3 py-2 text-white focus:ring-1 focus:ring-zinc-500"
-                >
-                  <option value="all">All Week</option>
-                  <option value="weekdays">Weekdays (Mon-Fri)</option>
-                  <option value="weekends">Weekends (Sat-Sun)</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
-              {(scheduleMode === "all" ||
-                scheduleMode === "weekdays" ||
-                scheduleMode === "weekends") && (
-                <div className="flex items-center gap-3">
-                  <label className="text-sm text-zinc-400">Start:</label>
-                  <input
-                    type="time"
-                    value={timeRange.start}
-                    onChange={(e) =>
-                      setTimeRange((prev) => ({
-                        ...prev,
-                        start: e.target.value,
-                      }))
-                    }
-                    className="rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:ring-1 focus:ring-zinc-500 w-[110px]"
-                  />
-                  <label className="text-sm text-zinc-400">End:</label>
-                  <input
-                    type="time"
-                    value={timeRange.end}
-                    onChange={(e) =>
-                      setTimeRange((prev) => ({
-                        ...prev,
-                        end: e.target.value,
-                      }))
-                    }
-                    className="rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:ring-1 focus:ring-zinc-500 w-[110px]"
+              <div className="overflow-y--auto flex-1 p-6 space-y-6">
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Name</label>
+                  <p className="font-medium text-lg text-white">{habits[selectedHabitId].name}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Description</label>
+                  <textarea
+                    rows={3}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="w-full rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                    placeholder="Description (optional)"
                   />
                 </div>
-              )}
-
-              {scheduleMode === "custom" && (
-                <div className="space-y-3">
-                  {customDays.map((sched, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 flex-wrap bg-zinc-900/60 border border-zinc-800 rounded-xl p-3"
-                    >
-                      <select
-                        value={sched.day}
-                        onChange={(e) => updateCustomDay(index, "day", e.target.value)}
-                        className="rounded-lg bg-zinc-900 border border-zinc-700 px-2 py-1 text-white"
-                      >
-                        {ALL_DAYS.map((day) => (
-                          <option key={day} value={day}>
-                            {day}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="time"
-                        value={sched.start}
-                        onChange={(e) => updateCustomDay(index, "start", e.target.value)}
-                        className="rounded-lg bg-zinc-900 border border-zinc-700 px-2 py-1 text-white"
-                      />
-                      <span className="text-zinc-400">to</span>
-                      <input
-                        type="time"
-                        value={sched.end}
-                        onChange={(e) => updateCustomDay(index, "end", e.target.value)}
-                        className="rounded-lg bg-zinc-900 border border-zinc-700 px-2 py-1 text-white"
-                      />
-                      <button
-                        onClick={() => removeCustomDay(index)}
-                        className="text-red-400 hover:text-red-600 px-2"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    onClick={addCustomDay}
-                    className="px-3 py-1 rounded-lg bg-emerald-700 text-white hover:bg-emerald-600"
-                    disabled={customDays.length >= 7}
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Icon</label>
+                  <IconGrid selected={editIcon} onSelect={setEditIcon} />
+                </div>
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-2">Schedules</label>
+                  <select
+                    value={scheduleMode}
+                    onChange={(e) => setScheduleMode(e.target.value)}
+                    className="rounded-lg bg-zinc-900 border border-zinc-700 px-3 py-2 text-white focus:ring-1 focus:ring-zinc-500"
                   >
-                    + Add Day
-                  </button>
+                    <option value="all">All Week</option>
+                    <option value="weekdays">Weekdays (Mon-Fri)</option>
+                    <option value="weekends">Weekends (Sat-Sun)</option>
+                    <option value="custom">Custom</option>
+                  </select>
                 </div>
-              )}
-            </div>
-            {/* Modal Footer */}
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50">
-              <button
-                onClick={() => handleRemoveHabit(selectedHabitId)}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 flex gap-2 items-center shadow-md"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => saveHabitDetails()}
-                className="px-5 py-2 rounded-lg bg-sky-900/80 hover:bg-sky-900 text-white font-medium transition"
-              >
-                <Save className="inline-block" />
-              </button>
-              <button
-                onClick={() => setSelectedHabitId(null)}
-                className="px-4 py-2 rounded-lg border border-white/20 bg-transparent hover:bg-white/20 text-white transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                {(scheduleMode === "all" || scheduleMode === "weekdays" || scheduleMode === "weekends") && (
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-zinc-400">Start:</label>
+                    <input
+                      type="time"
+                      value={timeRange.start}
+                      onChange={(e) => setTimeRange((prev) => ({ ...prev, start: e.target.value }))}
+                      className="rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:ring-1 focus:ring-zinc-500 w-[110px]"
+                    />
+                    <label className="text-sm text-zinc-400">End:</label>
+                    <input
+                      type="time"
+                      value={timeRange.end}
+                      onChange={(e) => setTimeRange((prev) => ({ ...prev, end: e.target.value }))}
+                      className="rounded-lg bg-zinc-900 border border-zinc-700 p-2 text-white focus:ring-1 focus:ring-zinc-500 w-[110px]"
+                    />
+                  </div>
+                )}
+
+                {scheduleMode === "custom" && (
+                  <div className="space-y-3">
+                    {customDays.map((sched, index) => (
+                      <div key={index} className="flex items-center gap-2 flex-wrap bg-zinc-900/60 border border-zinc-800 rounded-xl p-3">
+                        <select
+                          value={sched.day}
+                          onChange={(e) => updateCustomDay(index, "day", e.target.value)}
+                          className="rounded-lg bg-zinc-900 border border-zinc-700 px-2 py-1 text-white"
+                        >
+                          {ALL_DAYS.map((day) => (<option key={day} value={day}>{day}</option>))}
+                        </select>
+                        <input type="time" value={sched.start} onChange={(e) => updateCustomDay(index, "start", e.target.value)} className="rounded-lg bg-zinc-900 border border-zinc-700 px-2 py-1 text-white" />
+                        <span className="text-zinc-400">to</span>
+                        <input type="time" value={sched.end} onChange={(e) => updateCustomDay(index, "end", e.target.value)} className="rounded-lg bg-zinc-900 border border-zinc-700 px-2 py-1 text-white" />
+                        <button onClick={() => removeCustomDay(index)} className="text-red-400 hover:text-red-600 px-2">✕</button>
+                      </div>
+                    ))}
+                    <button onClick={addCustomDay} className="px-3 py-1 rounded-lg bg-emerald-700 text-white hover:bg-emerald-600" disabled={customDays.length >= 7}>+ Add Day</button>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50">
+                <motion.button whileHover={{scale: 1.05}} whileTap={{scale: 0.95}} onClick={() => handleRemoveHabit(selectedHabitId)} className="px-4 py-2 rounded-lg bg-red-800 text-white hover:bg-red-700 flex gap-2 items-center shadow-md transition-colors"><Trash2 className="w-4 h-4" /></motion.button>
+                <motion.button whileHover={{scale: 1.05}} whileTap={{scale: 0.95}} onClick={() => saveHabitDetails()} className="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-medium transition-colors flex items-center gap-2"><Save className="w-4 h-4" /> Save</motion.button>
+                <button onClick={() => setSelectedHabitId(null)} className="px-4 py-2 rounded-lg border border-white/20 bg-transparent hover:bg-white/20 text-white transition">Cancel</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

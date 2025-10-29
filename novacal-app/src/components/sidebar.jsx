@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
+import { supabase } from '../lib/supabaseClient';
 
 import {
   Target,
@@ -8,36 +9,10 @@ import {
   ClockFading,
   ChartNoAxesCombined,
   LogOut,
-  LogIn,
   LayoutDashboard,
   CalendarSync,
   Hammer
 } from 'lucide-react';
-
-const useAuth = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const logout = () => {
-    console.log('Logging out...');
-    setIsAuthenticated(false);
-    // Remove JWT and related data from localStorage
-    localStorage.removeItem("api_token");
-    localStorage.removeItem("focusTimerTimeLeft");
-    localStorage.removeItem("focusTimerIsRunning");
-    localStorage.removeItem("focusTimerSelectedTask");
-    localStorage.removeItem("focusTimerEndTimestamp");
-    localStorage.removeItem("focusTimerDuration");
-    localStorage.removeItem("focusTimerMode");
-    localStorage.removeItem("focusTimerStopwatchStart");
-    localStorage.removeItem("focusTimerExpired");
-    localStorage.removeItem("focusTimerElapsedBeforeExpire");
-    // You may want to clear more keys if your app stores more state!
-  };
-  const login = () => {
-    console.log('Logging in...');
-    setIsAuthenticated(true);
-  };
-  return { isAuthenticated, logout, login };
-};
 
 const navLinks = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -53,11 +28,10 @@ export default function Sidebar() {
   const location = useLocation();
   const pathname = location.pathname;
 
-  const { isAuthenticated, logout, login } = useAuth();
   const [isHovering, setIsHovering] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     navigate('/');
   };
 
@@ -123,30 +97,16 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto !pt-6 border-t border-zinc-800 z-10">
-        {isAuthenticated ? (
-          <button
-            onClick={handleLogout}
-            className={clsx(
-              'flex items-center w-full !px-4 !py-3 text-red-500 hover:bg-zinc-800 rounded-lg transition-colors duration-200',
-              !isHovering && 'justify-center'
-            )}
-          >
-            <LogOut className="w-5 h-5 mr-3 shrink-0" />
-            {isHovering && <span className="truncate">Log Out</span>}
-          </button>
-        ) : (
-          <a
-            href="/login"
-            onClick={(e) => { e.preventDefault(); navigate('/login'); login(); }}
-            className={clsx(
-              'flex items-center w-full !px-4 !py-3 text-white hover:bg-zinc-800 rounded-lg transition-colors duration-200',
-              !isHovering && 'justify-center'
-            )}
-          >
-            <LogIn className="w-5 h-5 mr-3 shrink-0" />
-            {isHovering && <span className="truncate">Login</span>}
-          </a>
-        )}
+        <button
+          onClick={handleLogout}
+          className={clsx(
+            'flex items-center w-full !px-4 !py-3 text-red-500 hover:bg-zinc-800 rounded-lg transition-colors duration-200',
+            !isHovering && 'justify-center'
+          )}
+        >
+          <LogOut className="w-5 h-5 mr-3 shrink-0" />
+          {isHovering && <span className="truncate">Log Out</span>}
+        </button>
         {isHovering && <p className="text-zinc-500 text-xs mt-2 text-center">v 1.0.0</p >}
       </div>
     </aside>

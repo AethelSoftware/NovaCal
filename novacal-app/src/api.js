@@ -46,10 +46,13 @@ export async function authedFetch(endpoint, options = {}) {
         body = options.body;
       }
     }
+    
+    // Clean up endpoint
+    const cleanedEndpoint = endpoint.startsWith('/api/') ? endpoint.substring(5) : endpoint;
 
     // Route to appropriate Supabase function
     // Handle basic endpoints
-    if (endpoint === 'tasks') {
+    if (cleanedEndpoint === 'tasks') {
       if (method === 'GET') {
         const data = await getTasks();
         return createMockResponse(data);
@@ -59,7 +62,7 @@ export async function authedFetch(endpoint, options = {}) {
       }
     }
     
-    if (endpoint === 'working_hours') {
+    if (cleanedEndpoint === 'working_hours') {
         if (method === 'GET') {
             const data = await getWorkingHours();
             return createMockResponse(data);
@@ -69,7 +72,7 @@ export async function authedFetch(endpoint, options = {}) {
         }
     }
 
-    if (endpoint === 'focus_sessions') {
+    if (cleanedEndpoint === 'focus_sessions') {
       if (method === 'GET') {
         const data = await getFocusSessions();
         return createMockResponse(data);
@@ -79,7 +82,7 @@ export async function authedFetch(endpoint, options = {}) {
       }
     }
 
-    if (endpoint === 'completed_tasks') {
+    if (cleanedEndpoint === 'completed_tasks') {
       if (method === 'GET') {
         const data = await getCompletedTasks();
         return createMockResponse(data);
@@ -89,14 +92,14 @@ export async function authedFetch(endpoint, options = {}) {
       }
     }
 
-    if (endpoint === 'custom_tasks') {
+    if (cleanedEndpoint === 'custom_tasks') {
       if (method === 'POST') {
         const data = await createCustomTask(body);
         return createMockResponse(data);
       }
     }
 
-    if (endpoint === 'habits') {
+    if (cleanedEndpoint === 'habits') {
       if (method === 'GET') {
         const data = await getHabits();
         return createMockResponse(data);
@@ -107,7 +110,7 @@ export async function authedFetch(endpoint, options = {}) {
     }
 
     // Handle dynamic endpoints with IDs
-    const parts = endpoint.split('/');
+    const parts = cleanedEndpoint.split('/');
     
     if (parts[0] === 'tasks' && parts.length === 2) {
       const taskId = parts[1];

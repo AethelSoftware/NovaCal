@@ -33,25 +33,23 @@ export default function AnalyticsPage() {
         const [fsRes, ctRes, hbRes] = await Promise.all([
           authedFetch("/api/focus_sessions").then((r) => r.json()),
           authedFetch("/api/completed_tasks").then((r) => r.json()),
-          authedFetch("/api/habits").then((r) => r.json()).catch(() => []), // optional
+          authedFetch("/api/habits").then((r) => r.json()).catch(() => []),
         ]);
 
-        // Normalize sessions
-        const normalizedFS = fsRes.map((s) => ({
+        const normalizedFS = (Array.isArray(fsRes) ? fsRes : []).map((s) => ({
           ...s,
           start_time: new Date(s.start_time),
           duration: Number(s.duration) || 0,
         }));
 
-        // Normalize tasks
-        const normalizedCT = ctRes.map((c) => ({
+        const normalizedCT = (Array.isArray(ctRes) ? ctRes : []).map((c) => ({
           ...c,
           completion_date: new Date(c.completion_date),
         }));
 
         setFocusSessions(normalizedFS);
         setCompletedTasks(normalizedCT);
-        setHabits(hbRes || []);
+        setHabits(Array.isArray(hbRes) ? hbRes : []);
       } catch (err) {
         console.error("Error fetching analytics:", err);
       } finally {

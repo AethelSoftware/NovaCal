@@ -18,6 +18,7 @@ import {
   Calendar,
   CheckCircle2,
   Star,
+  AlertTriangle,
 } from 'lucide-react';
 
 // NAVBAR COMPONENT (NO BG)
@@ -181,7 +182,7 @@ const AnimatedSection = ({ children, sectionId, index, currentIndex }) => {
 };
 
 export default function HomePage() {
-  const sections = ["hero", "problem", "solution", "features", "pioneer", "contact"];
+  const sections = ["hero", "struggle", "solution", "features", "pioneer", "contact"];
   const [currentSection, setCurrentSection] = useState(0);
   const scrollLocked = useRef(false);
   const prefersReduced = useReducedMotion();
@@ -226,13 +227,14 @@ export default function HomePage() {
           index={currentSection}
           currentIndex={currentSection}
         >
-          {/* Hero - Updated for focus struggles */}
+          {/* Hero - Direct emotional hook */}
           {currentSection === 0 && (
-            <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6">
+            <div className="absolute inset-0 flex flex-col lg:flex-row items-center justify-center px-6">
+              {/* Animated Graphic */}
               <motion.div
-                className="relative mb-10"
-                initial={{ scale: 0.86, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+                className="relative mb-8 lg:mb-0 lg:mr-12"
+                initial={{ scale: 0.86, opacity: 0, x: -50 }}
+                animate={{ scale: 1, opacity: 1, x: 0 }}
                 transition={{ duration: 1.1, ease: "easeOut" }}
               >
                 <motion.div
@@ -262,223 +264,302 @@ export default function HomePage() {
                 </motion.div>
               </motion.div>
 
-              <motion.h1
-                className="text-5xl md:text-7xl font-extrabold tracking-tight bg-gradient-to-br from-sky-400 via-blue-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-xl"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1 }}
-              >
-                Reclaim Your Focus
-              </motion.h1>
-              <motion.p
-                className="mt-6 max-w-2xl text-lg md:text-xl text-gray-300 mx-auto"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1.2, delay: 0.2 }}
-              >
-                For anyone who struggles with <span className="font-bold tracking-light text-emerald-400">distractions</span> and wants to master their time
-              </motion.p>
-              <motion.div
-                className="mt-8 flex gap-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1.2, delay: 0.4 }}
-              >
-                <button className="px-6 py-3 rounded-full font-bold bg-gradient-to-r from-sky-500 via-blue-500 to-fuchsia-500 text-white shadow-md hover:scale-105 hover:shadow-lg transition-all focus:outline-none cursor-pointer">
-                  <a href="/signup">Join Beta</a>
-                </button>
-                <button className="px-6 py-3 rounded-full font-semibold bg-white/10 text-sky-100 border border-white/15 transition-all hover:bg-white/20 hover:text-sky-300 focus:outline-none">
-                  <a href="/learn-more">Learn More</a>
-                </button>
-              </motion.div>
+              {/* Text Content */}
+              <div className="flex flex-col justify-center items-center lg:items-start text-center lg:text-left max-w-2xl">
+                <motion.h1
+                  className="text-4xl md:text-6xl font-bold mb-6 leading-tight"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 1, delay: 0.2 }}
+                >
+                  <span className="bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
+                    Tired of fighting<br />
+                    <span className="text-white">your own brain</span><br />
+                    every day?
+                  </span>
+                </motion.h1>
+                
+                <motion.p
+                  className="text-lg md:text-xl text-gray-300 mb-8"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 1, delay: 0.4 }}
+                >
+                  What if your calendar <span className="text-sky-300 font-semibold">actually worked</span> with your focus struggles instead of against them?
+                </motion.p>
+
+                <motion.div
+                  className="flex gap-4 flex-col sm:flex-row"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 1, delay: 0.6 }}
+                >
+                  <button className="px-6 py-3 text-lg font-bold bg-gradient-to-r from-sky-500 to-blue-600 rounded-full hover:scale-105 transition-transform group">
+                    <a href="/signup" className="flex items-center gap-2">
+                      Yes, I Need This 
+                      <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    </a>
+                  </button>
+                  <button className="px-6 py-3 text-lg font-semibold bg-white/10 rounded-full border border-white/20 hover:bg-white/20 transition-all">
+                    <a href="#solution">Show Me How</a>
+                  </button>
+                </motion.div>
+              </div>
             </div>
           )}
 
-          {/* Problem Section */}
+          {/* The Struggle - Relatable pain points */}
           {currentSection === 1 && (
-            <div className="flex flex-col gap-10 w-full max-w-4xl mx-auto">
+            <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto px-4">
               <motion.h2
-                className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-rose-300 via-pink-300 to-purple-400 bg-clip-text text-transparent mb-8 text-center drop-shadow-lg"
+                className="text-3xl md:text-4xl font-bold text-center mb-8"
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1.1 }}
               >
-                The Focus Struggle Is Real
+                <span className="bg-gradient-to-r from-rose-400 to-orange-400 bg-clip-text text-transparent">
+                  Sound Familiar?
+                </span>
               </motion.h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <motion.div className="bg-gradient-to-br from-rose-500/10 to-pink-500/5 border border-white/10 rounded-2xl p-6 text-center backdrop-blur-lg">
-                  <div className="w-16 h-16 rounded-full bg-rose-500/20 flex items-center justify-center mx-auto mb-4">
-                    <Clock className="text-rose-300" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-rose-200 mb-2">Constant Distractions</h3>
-                  <p className="text-gray-300 text-sm">Losing focus between tasks and struggling to get back on track</p>
-                </motion.div>
 
-                <motion.div className="bg-gradient-to-br from-purple-500/10 to-blue-500/5 border border-white/10 rounded-2xl p-6 text-center backdrop-blur-lg">
-                  <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-4">
-                    <Brain className="text-purple-300" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-purple-200 mb-2">Task Switching</h3>
-                  <p className="text-gray-300 text-sm">Constantly jumping between tasks without finishing what you started</p>
-                </motion.div>
-
-                <motion.div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5 border border-white/10 rounded-2xl p-6 text-center backdrop-blur-lg">
-                  <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
-                    <Target className="text-blue-300" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-blue-200 mb-2">Overwhelm</h3>
-                  <p className="text-gray-300 text-sm">Too many tasks, too little direction on where to start</p>
-                </motion.div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { 
+                    icon: <Clock className="w-6 h-6" />, 
+                    title: "Time Blindness", 
+                    description: "2 hours feels like 20 minutes. Deadlines sneak up while you're stuck scrolling." 
+                  },
+                  { 
+                    icon: <AlertTriangle className="w-6 h-6" />, 
+                    title: "Task Paralysis", 
+                    description: "You know what needs doing, but starting feels impossible. So you do nothing instead." 
+                  },
+                  { 
+                    icon: <Brain className="w-6 h-6" />, 
+                    title: "Mental Overwhelm", 
+                    description: "Too many tabs in your brain. Too many choices. Too much noise. Complete shutdown." 
+                  },
+                  { 
+                    icon: <Target className="w-6 h-6" />, 
+                    title: "The Guilt Cycle", 
+                    description: "You had a plan. You failed the plan. Now you feel guilty about failing. Rinse, repeat." 
+                  }
+                ].map((item, index) => (
+                  <motion.div
+                    key={item.title}
+                    className="bg-white/5 border border-white/10 rounded-xl p-4 backdrop-blur-lg hover:bg-white/10 transition-all h-full"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 rounded-lg bg-rose-500/20 text-rose-300">
+                        {item.icon}
+                      </div>
+                      <h3 className="text-lg font-semibold text-white">{item.title}</h3>
+                    </div>
+                    <p className="text-gray-300 text-sm">{item.description}</p>
+                  </motion.div>
+                ))}
               </div>
 
-              <motion.div 
-                className="mt-8 text-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8 }}
-              >
-                <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-                  Traditional calendars weren't built for modern attention spans. They create more stress than they solve.
+              <motion.div className="text-center mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
+                <p className="text-gray-300">
+                  It's not you. It's your tools. Regular calendars were built for neurotypical brains.
                 </p>
               </motion.div>
             </div>
           )}
 
-          {/* Solution Section */}
+          {/* Solution - The transformation */}
           {currentSection === 2 && (
-            <div className="flex flex-col gap-10 w-full max-w-5xl mx-auto">
-              <motion.h2
-                className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-300 via-teal-300 to-cyan-400 bg-clip-text text-transparent mb-8 text-center drop-shadow-lg"
+            <div className="flex flex-col gap-8 w-full max-w-6xl mx-auto px-4">
+              {/* Header with Button */}
+              <motion.div 
+                className="flex flex-col lg:flex-row justify-between items-center gap-6 mb-8"
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1.1 }}
               >
-                Designed for Better Focus
-              </motion.h2>
+                <div className="flex-1 text-center lg:text-left">
+                  <motion.h2
+                    className="text-3xl md:text-4xl font-bold mb-3"
+                  >
+                    <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                      Imagine This Instead
+                    </span>
+                  </motion.h2>
+                  <motion.p
+                    className="text-lg text-gray-300 max-w-2xl mx-auto lg:mx-0"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    What if your calendar was designed for <span className="text-emerald-300 font-semibold">how your brain actually works</span>?
+                  </motion.p>
+                </div>
+                
+                <motion.div
+                  className="flex-shrink-0"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <button className="px-6 py-3 text-lg font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full hover:scale-105 hover:shadow-2xl transition-all duration-300 group">
+                    <a href="/signup" className="flex items-center gap-2 whitespace-nowrap">
+                      I Want My Brain Back
+                      <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    </a>
+                  </button>
+                </motion.div>
+              </motion.div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <motion.div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                      <Sparkles className="text-emerald-300" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-emerald-200 mb-2">Smart Event System</h3>
-                      <p className="text-gray-300 text-sm">
-                        Clean, intuitive scheduling that helps you stay organized without the overwhelm
+              {/* Features Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {[
+                  {
+                    icon: <Clock className="w-8 h-8" />,
+                    title: "Visual Time Understanding",
+                    description: "A calendar that shows time visually so you actually understand how long things take",
+                    gradient: "from-blue-500/20 to-cyan-500/10"
+                  },
+                  {
+                    icon: <Zap className="w-8 h-8" />,
+                    title: "Panic-Free Transitions", 
+                    description: "Gentle reminders that help you transition between tasks without the panic",
+                    gradient: "from-emerald-500/20 to-green-500/10"
+                  },
+                  {
+                    icon: <Target className="w-8 h-8" />,
+                    title: "Brain-Friendly Steps",
+                    description: "A system that breaks down overwhelming projects into brain-friendly steps",
+                    gradient: "from-purple-500/20 to-pink-500/10"
+                  },
+                  {
+                    icon: <Brain className="w-8 h-8" />,
+                    title: "Focus Cycle Matching",
+                    description: "Tools that work with your focus cycles, not against them",
+                    gradient: "from-orange-500/20 to-red-500/10"
+                  },
+                  {
+                    icon: <HeartHandshake className="w-8 h-8" />,
+                    title: "Guilt-Free Adaptability",
+                    description: "No more guilt when plans change - because the system adapts with you",
+                    gradient: "from-indigo-500/20 to-blue-500/10"
+                  },
+                  {
+                    icon: <Sparkles className="w-8 h-8" />,
+                    title: "Built for You",
+                    description: "Every feature designed with ADHD and focus challenges in mind",
+                    gradient: "from-cyan-500/20 to-emerald-500/10"
+                  }
+                ].map((item, index) => (
+                  <motion.div
+                    key={index}
+                    className={`bg-gradient-to-br ${item.gradient} border border-white/10 rounded-2xl p-6 backdrop-blur-lg hover:scale-105 hover:shadow-2xl hover:border-white/20 transition-all duration-300 group h-full`}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 + 0.4 }}
+                    whileHover={{ y: -5 }}
+                  >
+                    <div className="flex flex-col h-full">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                          <div className="text-emerald-300">
+                            {item.icon}
+                          </div>
+                        </div>
+                        <h3 className="text-lg font-semibold text-white group-hover:text-emerald-200 transition-colors">
+                          {item.title}
+                        </h3>
+                      </div>
+                      <p className="text-gray-300 text-sm leading-relaxed flex-grow">
+                        {item.description}
                       </p>
                     </div>
-                  </div>
-                </motion.div>
-
-                <motion.div className="bg-gradient-to-br from-cyan-500/10 to-sky-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
-                      <Zap className="text-cyan-300" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-cyan-200 mb-2">Advanced Coordination</h3>
-                      <p className="text-gray-300 text-sm">
-                        Easy event coordination and scheduling that adapts to your workflow
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div className="bg-gradient-to-br from-violet-500/10 to-purple-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-violet-500/20 flex items-center justify-center flex-shrink-0">
-                      <CheckCircle2 className="text-violet-300" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-violet-200 mb-2">Deep Customization</h3>
-                      <p className="text-gray-300 text-sm">
-                        Tailor the app to your unique workflow and preferences
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div className="bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                      <Calendar className="text-amber-300" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-amber-200 mb-2">Future Focus Features</h3>
-                      <p className="text-gray-300 text-sm">
-                        Advanced scheduling algorithms and focus tools in development
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Features */}
+          {/* Features - MVP status clear */}
           {currentSection === 3 && (
-            <div className="flex flex-col gap-10 w-full max-w-6xl mx-auto">
+            <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto px-4">
               <motion.h2
-                className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-fuchsia-300 via-indigo-300 to-sky-400 bg-clip-text text-transparent mb-8 text-center drop-shadow-[0_2px_12px_rgba(100,0,200,0.2)]"
+                className="text-3xl md:text-4xl font-bold text-center"
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1.1 }}
               >
-                What's Coming Soon
+                <span className="bg-gradient-to-r from-fuchsia-300 via-indigo-300 to-sky-400 bg-clip-text text-transparent">
+                  Solid Foundation, Amazing Future
+                </span>
               </motion.h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 ml-10 mr-10">
-                <motion.div className="bg-gradient-to-tr from-pink-500/[0.13] to-indigo-500/[0.09] border border-white/10 rounded-3xl shadow-2xl !p-8 hover:-translate-y-2 hover:scale-105 hover:shadow-fuchsia-400/20 transition-all duration-300 backdrop-blur-lg">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-fuchsia-500/60 flex items-center justify-center text-2xl">
-                      <FastForward />
+              
+              <motion.p
+                className="text-center text-gray-300 mb-4 max-w-2xl mx-auto"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                We're starting with a powerful MVP and building the ADHD-friendly features <span className="text-emerald-300 font-semibold">with your feedback</span>
+              </motion.p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <motion.div className="bg-gradient-to-tr from-sky-500/10 to-blue-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-sky-400/70 flex items-center justify-center">
+                      <Calendar className="text-sky-300" />
                     </div>
-                    <span className="text-lg font-medium text-fuchsia-200">
-                      Smart Event System
-                    </span>
+                    <div>
+                      <h3 className="text-lg font-semibold text-sky-200">Smart Event System</h3>
+                      <div className="text-xs text-gray-400 font-medium">COMING SOON</div>
+                    </div>
                   </div>
-                  <p className="text-gray-200 text-base leading-relaxed">
-                    Clean event creation and coordination that helps you stay organized.
+                  <p className="text-gray-300 text-sm">
+                    Clean, intuitive scheduling that helps you stay organized without the overwhelm
                   </p>
                 </motion.div>
-                <motion.div className="bg-gradient-to-tr from-sky-500/[0.12] to-purple-500/[0.09] border border-white/10 rounded-3xl shadow-2xl !p-8 hover:-translate-y-2 hover:scale-105 hover:shadow-sky-400/20 transition-all duration-300 backdrop-blur-lg">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-sky-400/70 flex items-center justify-center text-2xl">
-                      <Brain />
+
+                <motion.div className="bg-gradient-to-tr from-purple-500/10 to-pink-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-purple-400/70 flex items-center justify-center">
+                      <AppWindow className="text-purple-300" />
                     </div>
-                    <span className="text-lg font-medium text-sky-200">
-                      Deep Customization
-                    </span>
+                    <div>
+                      <h3 className="text-lg font-semibold text-purple-200">Deep Customization</h3>
+                      <div className="text-xs text-gray-400 font-medium">COMING SOON</div>
+                    </div>
                   </div>
-                  <p className="text-gray-200 text-base leading-relaxed">
-                    Tailor the app to your workflow with extensive customization options.
+                  <p className="text-gray-300 text-sm">
+                    Tailor the app to your unique workflow and visual preferences
                   </p>
                 </motion.div>
-                <motion.div className="bg-gradient-to-tr from-yellow-400/[0.11] to-fuchsia-400/5 border border-white/10 rounded-3xl shadow-2xl !p-8 hover:-translate-y-2 hover:scale-105 hover:shadow-yellow-300/20 transition-all duration-300 backdrop-blur-lg">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-yellow-300/60 flex items-center justify-center text-2xl">
-                      <Zap />
+
+                <motion.div className="bg-gradient-to-tr from-amber-500/10 to-orange-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-amber-400/70 flex items-center justify-center">
+                      <Zap className="text-amber-300" />
                     </div>
-                    <span className="text-lg font-medium text-yellow-200">
-                      Advanced Scheduling
-                    </span>
+                    <div>
+                      <h3 className="text-lg font-semibold text-amber-200">Focus Tools</h3>
+                      <div className="text-xs text-gray-400 font-medium">COMING SOON</div>
+                    </div>
                   </div>
-                  <p className="text-gray-200 text-base leading-relaxed">
-                    AI-powered scheduling algorithms to optimize your time and focus.
+                  <p className="text-gray-300 text-sm">
+                    ADHD-friendly features to minimize distractions and maintain flow state
                   </p>
                 </motion.div>
-                <motion.div className="bg-gradient-to-tr from-purple-400/[0.14] to-rose-400/10 border border-white/10 rounded-3xl shadow-2xl !p-8 hover:-translate-y-2 hover:scale-105 hover:shadow-purple-300/20 transition-all duration-300 backdrop-blur-lg">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-purple-300/75 flex items-center justify-center text-2xl">
-                      <Users />
+
+                <motion.div className="bg-gradient-to-tr from-emerald-500/10 to-teal-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-emerald-400/70 flex items-center justify-center">
+                      <Brain className="text-emerald-300" />
                     </div>
-                    <span className="text-lg font-medium text-purple-100">
-                      Focus Tools
-                    </span>
+                    <div>
+                      <h3 className="text-lg font-semibold text-emerald-200">Smart Scheduling</h3>
+                      <div className="text-xs text-gray-400 font-medium">COMING SOON</div>
+                    </div>
                   </div>
-                  <p className="text-gray-200 text-base leading-relaxed">
-                    Specialized features to help minimize distractions and maintain flow state.
+                  <p className="text-gray-300 text-sm">
+                    AI-powered scheduling that understands energy levels and focus patterns
                   </p>
                 </motion.div>
               </div>
@@ -487,73 +568,94 @@ export default function HomePage() {
 
           {/* Pioneer Benefits */}
           {currentSection === 4 && (
-            <motion.div className="relative z-10 max-w-4xl w-full mx-auto flex flex-col items-center text-center px-6">
-              <motion.h2 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-amber-300 via-orange-300 to-yellow-400 bg-clip-text text-transparent mb-6 drop-shadow-lg">
-                Become a Founding Pioneer
+            <div className="flex flex-col gap-6 w-full max-w-2xl mx-auto px-4 text-center">
+              <motion.h2
+                className="text-3xl md:text-4xl font-bold"
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <span className="bg-gradient-to-r from-amber-300 to-orange-400 bg-clip-text text-transparent">
+                  Stop Fighting Yourself
+                </span>
               </motion.h2>
-              
-              <motion.div className="bg-gradient-to-br from-amber-500/5 via-orange-500/5 to-yellow-500/5 border border-amber-500/20 rounded-3xl p-8 mb-8 backdrop-blur-lg max-w-2xl">
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <Crown className="text-amber-300 w-8 h-8" />
-                  <h3 className="text-2xl font-bold text-amber-200">Exclusive Beta Benefits</h3>
+
+              <motion.p
+                className="text-lg text-gray-300"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                Join the first calendar built for focus-challenged brains
+              </motion.p>
+
+              <motion.div
+                className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-6 backdrop-blur-lg"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <Crown className="text-amber-300 w-6 h-6" />
+                  <h3 className="text-xl font-bold text-amber-200">Founding Member Benefits</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left mb-6">
-                  <div className="flex items-center gap-3">
-                    <Star className="text-amber-400 w-5 h-5" />
-                    <span className="text-gray-200">Free forever for beta users</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Shield className="text-amber-400 w-5 h-5" />
-                    <span className="text-gray-200">Lifetime premium features</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <HeartHandshake className="text-amber-400 w-5 h-5" />
-                    <span className="text-gray-200">Direct influence on features</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Code className="text-amber-400 w-5 h-5" />
-                    <span className="text-gray-200">Early access to all updates</span>
-                  </div>
+                <div className="grid grid-cols-1 gap-3 text-left mb-6">
+                  {[
+                    { icon: Star, text: "Free forever - no subscription ever" },
+                    { icon: Shield, text: "Lifetime premium features" },
+                    { icon: HeartHandshake, text: "Direct influence on ADHD features" },
+                    { icon: Code, text: "Early access to all updates" }
+                  ].map((benefit, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <benefit.icon className="text-amber-400 w-4 h-4" />
+                      <span className="text-white text-sm">{benefit.text}</span>
+                    </div>
+                  ))}
                 </div>
-                
-                <p className="text-amber-100 text-lg font-semibold mb-6">
-                  Limited to first 1,000 pioneers only
-                </p>
-                
-                <motion.button
-                  className="px-8 py-4 text-lg font-bold rounded-full shadow-lg text-white bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-600 hover:scale-105 hover:shadow-2xl transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <a href="/signup">Claim Your Pioneer Spot</a>
-                </motion.button>
+
+                <div className="space-y-3">
+                  <motion.button
+                    className="w-full py-3 text-lg font-bold bg-gradient-to-r from-amber-500 to-orange-500 rounded-full hover:scale-105 transition-transform"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <a href="/signup">Get Early Access - It's Free</a>
+                  </motion.button>
+                  <p className="text-amber-200 text-xs">
+                    Limited to first 500 members • No credit card required
+                  </p>
+                </div>
               </motion.div>
 
-              <motion.p className="text-lg md:text-xl text-gray-300 leading-relaxed max-w-2xl">
-                Help us build the future of time management. Your feedback will shape the tools that help people focus better and achieve more.
+              <motion.p
+                className="text-gray-400 text-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+              >
+                You've tried everything else. Isn't it time you tried something that actually understands you?
               </motion.p>
-            </motion.div>
+            </div>
           )}
 
           {/* Contact */}
           {currentSection === 5 && (
-            <motion.div className="relative w-full max-w-3xl flex flex-col items-center !p-5">
+            <motion.div className="relative w-full max-w-xl flex flex-col items-center px-4 text-center">
               <motion.div className="absolute -inset-2 bg-gradient-to-br from-sky-500/20 via-teal-500/20 to-blue-400/10 rounded-3xl filter blur-2xl pointer-events-none -z-10" />
-              <motion.h2 className="text-3xl md:text-4xl font-extrabold bg-sky-400 bg-clip-text text-transparent mb-5 text-center drop-shadow-lg">
+              <motion.h2 className="text-2xl md:text-3xl font-extrabold bg-sky-400 bg-clip-text text-transparent mb-4">
                 Help Us Build This
               </motion.h2>
-              <motion.p className="text-lg md:text-xl text-gray-300 mb-7 leading-relaxed max-w-xl text-center">
+              <motion.p className="text-gray-300 mb-6 leading-relaxed">
                 We're looking for passionate beta testers who want to help create better time management tools for everyone.
               </motion.p>
               <motion.a
                 href="mailto:aethelsoftware@gmail.com"
-                className="inline-flex items-center justify-center gap-2 !px-8 !py-4 text-lg font-bold rounded-full shadow-lg text-white bg-gradient-to-r from-teal-500 via-sky-500 to-blue-600 hover:scale-105 hover:shadow-2xl hover:bg-gradient-to-br hover:from-pink-600 hover:to-purple-500 transition-all duration-300"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-lg font-bold rounded-full shadow-lg text-white bg-gradient-to-r from-teal-500 via-sky-500 to-blue-600 hover:scale-105 hover:shadow-2xl transition-all duration-300"
               >
                 <Mail className="text-white" />
-                Join Beta
+                Join Beta!
               </motion.a>
-              <motion.div className="mt-7 text-sm text-gray-300 opacity-60">
+              <motion.div className="mt-6 text-sm text-gray-300 opacity-60">
                 <a href="mailto:aethelsoftware@gmail.com">aethelsoftware@gmail.com</a>
               </motion.div>
             </motion.div>

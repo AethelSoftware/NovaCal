@@ -63,6 +63,7 @@ export default function Dashboard() {
   const timerRef = useRef(null);
   const endTsRef = useRef(null);
   const stopwatchStartTsRef = useRef(null);
+  const isCompletingRef = useRef(false); // Prevent duplicate completions
 
   useEffect(() => {
     try {
@@ -196,96 +197,90 @@ export default function Dashboard() {
     };
   }, [isRunning, mode]);
 
-  // Replace the fetchData function in Dashboard.jsx (around line 197-250)
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const tasksRes = await authedFetch(`tasks`, { signal });
+        const sessionsRes = await authedFetch(`focus_sessions`, { signal });
+        const completedRes = await authedFetch(`completed_tasks`, { signal });
 
-// Replace the fetchData function in Dashboard.jsx (around line 197-250)
-
-useEffect(() => {
-  const controller = new AbortController();
-  const signal = controller.signal;
-  
-  async function fetchData() {
-    setLoading(true);
-    setError(null);
-    try {
-      // Fetch data from Supabase via authedFetch wrapper
-      const tasksRes = await authedFetch(`tasks`, { signal });
-      const sessionsRes = await authedFetch(`focus_sessions`, { signal });
-      const completedRes = await authedFetch(`completed_tasks`, { signal });
-
-      // Check responses
-      if (!tasksRes?.ok) {
-        const errData = await tasksRes.json().catch(() => ({}));
-        throw new Error(errData.error || `Tasks returned status: ${tasksRes?.status || 'unknown'}`);
-      }
-      if (!sessionsRes?.ok) {
-        const errData = await sessionsRes.json().catch(() => ({}));
-        throw new Error(errData.error || `Sessions returned status: ${sessionsRes?.status || 'unknown'}`);
-      }
-      if (!completedRes?.ok) {
-        const errData = await completedRes.json().catch(() => ({}));
-        throw new Error(errData.error || `Completed returned status: ${completedRes?.status || 'unknown'}`);
-      }
-
-      const tasksData = await tasksRes.json();
-      const sessionsData = await sessionsRes.json();
-      const completedData = await completedRes.json();
-      
-      const todayStart = startOfDay(new Date());
-      const todayEnd = endOfDay(new Date());
-      
-      const todayTasks = (tasksData || [])
-        .map((t) => ({ ...t }))
-        .filter((task) => {
-          const s = new Date(task.start);
-          return s >= todayStart && s <= todayEnd;
-        })
-        .sort((a, b) => new Date(a.start) - new Date(b.start));
-      
-      const todaySessions = (sessionsData || []).filter((s) => 
-        isToday(new Date(s.start_time))
-      );
-      const todayCompleted = (completedData || []).filter((c) => 
-        isToday(new Date(c.completion_date))
-      );
-      
-      const filteredTasks = todayTasks.filter((task) => 
-        !todayCompleted.some((c) => c.task_id === task.id)
-      );
-      
-      setTasks(filteredTasks);
-      setFocusSessions(todaySessions);
-      setCompletedTasks(todayCompleted);
-      
-      const savedTaskStr = localStorage.getItem(LS_TASK_KEY);
-      if (savedTaskStr) {
-        try {
-          const parsed = JSON.parse(savedTaskStr);
-          const found = filteredTasks.find((t) => t.id === parsed.id);
-          if (!found) {
-            setSelectedTask(null);
-            localStorage.removeItem(LS_TASK_KEY);
-          } else {
-            setSelectedTask(found);
-          }
-        } catch (e) {
-          console.error("Error parsing saved task:", e);
-          localStorage.removeItem(LS_TASK_KEY);
+        if (!tasksRes?.ok) {
+          const errData = await tasksRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Tasks returned status: ${tasksRes?.status || 'unknown'}`);
         }
+        if (!sessionsRes?.ok) {
+          const errData = await sessionsRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Sessions returned status: ${sessionsRes?.status || 'unknown'}`);
+        }
+        if (!completedRes?.ok) {
+          const errData = await completedRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Completed returned status: ${completedRes?.status || 'unknown'}`);
+        }
+
+        const tasksData = await tasksRes.json();
+        const sessionsData = await sessionsRes.json();
+        const completedData = await completedRes.json();
+        
+        const todayStart = startOfDay(new Date());
+        const todayEnd = endOfDay(new Date());
+        
+        const todayTasks = (tasksData || [])
+          .map((t) => ({ ...t }))
+          .filter((task) => {
+            const s = new Date(task.start);
+            return s >= todayStart && s <= todayEnd;
+          })
+          .sort((a, b) => new Date(a.start) - new Date(b.start));
+        
+        const todaySessions = (sessionsData || []).filter((s) => 
+          isToday(new Date(s.start_time))
+        );
+        const todayCompleted = (completedData || []).filter((c) => 
+          isToday(new Date(c.completion_date))
+        );
+        
+        const filteredTasks = todayTasks.filter((task) => 
+          !todayCompleted.some((c) => c.task_id === task.id)
+        );
+        
+        setTasks(filteredTasks);
+        setFocusSessions(todaySessions);
+        setCompletedTasks(todayCompleted);
+        
+        const savedTaskStr = localStorage.getItem(LS_TASK_KEY);
+        if (savedTaskStr) {
+          try {
+            const parsed = JSON.parse(savedTaskStr);
+            const found = filteredTasks.find((t) => t.id === parsed.id);
+            if (!found) {
+              setSelectedTask(null);
+              localStorage.removeItem(LS_TASK_KEY);
+            } else {
+              setSelectedTask(found);
+            }
+          } catch (e) {
+            console.error("Error parsing saved task:", e);
+            localStorage.removeItem(LS_TASK_KEY);
+          }
+        }
+      } catch (e) {
+        if (e.name !== "AbortError") {
+          console.error("Failed to fetch data:", e);
+          setError(e.message || "Failed to load data.");
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      if (e.name !== "AbortError") {
-        console.error("Failed to fetch data:", e);
-        setError(e.message || "Failed to load data.");
-      }
-    } finally {
-      setLoading(false);
     }
-  }
-  
-  fetchData();
-  return () => controller.abort();
-}, []);
+    
+    fetchData();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission !== "granted") {
@@ -343,33 +338,54 @@ useEffect(() => {
     setIsRunning(false);
   };
 
+  const clearSessionState = () => {
+    setSessionExpired(false);
+    setElapsedBeforeExpire(0);
+    localStorage.removeItem("focusTimerExpired");
+    localStorage.removeItem("focusTimerElapsedBeforeExpire");
+  };
+
   const handleCompleteFocus = useCallback(
     async (isTaskCompleted) => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      endTsRef.current = null;
-      stopwatchStartTsRef.current = null;
-      localStorage.removeItem(LS_END_TS_KEY);
-      localStorage.removeItem(LS_STOPWATCH_START_TS_KEY);
-      let elapsedSeconds = 0;
-      if (sessionExpired) {
-        elapsedSeconds = elapsedBeforeExpire;
-      } else if (mode === "timer") {
-        elapsedSeconds = activeSessionDuration - timeLeft;
-      } else {
-        elapsedSeconds = stopwatchElapsed;
-      }
-      if (!selectedTask) {
-        setTimeLeft(sessionDuration);
-        setStopwatchElapsed(0);
-        setActiveSessionDuration(sessionDuration);
-        setSessionExpired(false);
+      // Prevent duplicate calls
+      if (isCompletingRef.current) {
+        console.log("Already completing, skipping duplicate call");
         return;
       }
-      const durationInMinutes = Math.max(0, Math.floor(elapsedSeconds / 60));
+      
+      isCompletingRef.current = true;
+
       try {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        
+        setIsRunning(false);
+        endTsRef.current = null;
+        stopwatchStartTsRef.current = null;
+        localStorage.removeItem(LS_END_TS_KEY);
+        localStorage.removeItem(LS_STOPWATCH_START_TS_KEY);
+        
+        let elapsedSeconds = 0;
+        if (sessionExpired) {
+          elapsedSeconds = elapsedBeforeExpire;
+        } else if (mode === "timer") {
+          elapsedSeconds = activeSessionDuration - timeLeft;
+        } else {
+          elapsedSeconds = stopwatchElapsed;
+        }
+        
+        if (!selectedTask) {
+          setTimeLeft(sessionDuration);
+          setStopwatchElapsed(0);
+          setActiveSessionDuration(sessionDuration);
+          clearSessionState();
+          return;
+        }
+        
+        const durationInMinutes = Math.max(0, Math.floor(elapsedSeconds / 60));
+        
         const res = await authedFetch(`focus_sessions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -379,16 +395,21 @@ useEffect(() => {
             task_completed: isTaskCompleted,
           }),
         });
+        
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const newSession = await res.json();
         setFocusSessions((prev) => [...prev, newSession]);
-        if (isTaskCompleted) handleMoveToCompleted(selectedTask.id);
+        
+        if (isTaskCompleted) {
+          await handleMoveToCompleted(selectedTask.id);
+        }
+        
         setSelectedTask(null);
         localStorage.removeItem(LS_TASK_KEY);
         setTimeLeft(sessionDuration);
         setStopwatchElapsed(0);
         setActiveSessionDuration(sessionDuration);
-        setSessionExpired(false);
+        clearSessionState();
       } catch (e) {
         console.error("Failed to save focus session:", e);
         setSelectedTask(null);
@@ -396,7 +417,9 @@ useEffect(() => {
         setTimeLeft(sessionDuration);
         setStopwatchElapsed(0);
         setActiveSessionDuration(sessionDuration);
-        setSessionExpired(false);
+        clearSessionState();
+      } finally {
+        isCompletingRef.current = false;
       }
     },
     [timeLeft, selectedTask, sessionDuration, mode, stopwatchElapsed, activeSessionDuration, sessionExpired, elapsedBeforeExpire]
@@ -538,6 +561,14 @@ useEffect(() => {
     setTempMinutes((p) => roundToNearest5(Math.max(5, p - 5)));
   };
 
+  const handleModalContinue = () => {
+    setMode("stopwatch");
+    setStopwatchElapsed(elapsedBeforeExpire);
+    stopwatchStartTsRef.current = Date.now() - elapsedBeforeExpire * 1000;
+    setIsRunning(true);
+    clearSessionState();
+  };
+
   return (
     <div className="min-h-screen dashboard-background p-6">
       <div className="max-w-7xl mx-auto backdrop-blur-sm rounded-lg shadow-lg border-2 border-white/20 p-6 h-full bg-transparent">
@@ -563,7 +594,6 @@ useEffect(() => {
                 <Timer className="w-4 h-4 mr-2" />
                 Focus Session
               </button>
-
 
               {showSettings && (
                 <div className="absolute top-80 right-20 mt-12 w-80 z-40 bg-black border border-white/20 rounded-lg p-4 shadow-lg text-stone-200">
@@ -857,20 +887,8 @@ useEffect(() => {
         <SessionExpiredModal
           isOpen={sessionExpired}
           onFinish={() => handleCompleteFocus(true)}
-          onContinue={() => {
-            setMode("stopwatch");
-            setStopwatchElapsed(elapsedBeforeExpire);
-            stopwatchStartTsRef.current = Date.now() - elapsedBeforeExpire * 1000;
-            setIsRunning(true);
-
-            // Clear expired state
-            setSessionExpired(false);
-            localStorage.removeItem("focusTimerExpired");
-            localStorage.removeItem("focusTimerElapsedBeforeExpire");
-          }}
+          onContinue={handleModalContinue}
         />
-
-
 
       </div>
     </div>

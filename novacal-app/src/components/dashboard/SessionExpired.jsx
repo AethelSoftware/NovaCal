@@ -1,7 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function SessionExpiredModal({ isOpen, onFinish, onContinue }) {
+export default function SessionExpiredModal({ isOpen, onFinish, onContinue, isCompleting }) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -24,13 +24,15 @@ export default function SessionExpiredModal({ isOpen, onFinish, onContinue }) {
             <div className="flex justify-end gap-4">
               <button
                 onClick={onFinish}
-                className="bg-red-500 px-4 py-2 rounded text-white"
+                className="bg-red-500 px-4 py-2 rounded text-white disabled:opacity-50"
+                disabled={isCompleting}
               >
-                Finish
+                {isCompleting ? "Finishing..." : "Finish"}
               </button>
               <button
                 onClick={onContinue}
-                className="bg-emerald-500 px-4 py-2 rounded text-white"
+                className="bg-emerald-500 px-4 py-2 rounded text-white disabled:opacity-50"
+                disabled={isCompleting}
               >
                 Continue (+5 min)
               </button>

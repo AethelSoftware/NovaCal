@@ -10,7 +10,7 @@ import {
   Circle,
   Settings,
 } from "lucide-react";
-import { format, isToday, startOfDay, endOfDay } from "date-fns";
+import { format, isToday, startOfDay, endOfDay, addMinutes } from "date-fns";
 import Card from "./components/dashboard/DashboardCard";
 import ProgressRings from "./components/dashboard/ProgressRings";
 import ProductivitySection from "./components/dashboard/TodayProductivity";
@@ -63,7 +63,7 @@ export default function Dashboard() {
   const timerRef = useRef(null);
   const endTsRef = useRef(null);
   const stopwatchStartTsRef = useRef(null);
-  const isCompletingRef = useRef(false); // Prevent duplicate completions
+  const isCompletingRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -293,6 +293,41 @@ export default function Dashboard() {
     localStorage.setItem(LS_TASK_KEY, JSON.stringify(task));
   };
 
+  const handleStartTask = async (task) => {
+    try {
+      const now = new Date();
+      const originalStart = new Date(task.start);
+      const originalEnd = new Date(task.end);
+      const duration = (originalEnd - originalStart) / (1000 * 60); // minutes
+      const newEnd = addMinutes(now, duration);
+
+      const res = await authedFetch(`tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start: now.toISOString(),
+          end: newEnd.toISOString(),
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to start task");
+      }
+
+      const updatedTask = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+      
+      if (selectedTask?.id === task.id) {
+        setSelectedTask(updatedTask);
+        localStorage.setItem(LS_TASK_KEY, JSON.stringify(updatedTask));
+      }
+    } catch (err) {
+      console.error("Error starting task:", err);
+      alert("Error starting task: " + err.message);
+    }
+  };
+
   const handleStartFocus = () => {
     setActiveSessionDuration(sessionDuration);
     if (!selectedTask) return;
@@ -347,7 +382,6 @@ export default function Dashboard() {
 
   const handleCompleteFocus = useCallback(
     async (isTaskCompleted) => {
-      // Prevent duplicate calls
       if (isCompletingRef.current) {
         console.log("Already completing, skipping duplicate call");
         return;
@@ -434,6 +468,20 @@ export default function Dashboard() {
         return;
       }
       try {
+        // Update task end time to now (minimum 15 minutes)
+        const now = new Date();
+        const taskStart = new Date(taskToMove.start);
+        const elapsedMinutes = (now - taskStart) / (1000 * 60);
+        const adjustedEnd = elapsedMinutes < 15 ? addMinutes(taskStart, 15) : now;
+
+        await authedFetch(`tasks/${taskId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            end: adjustedEnd.toISOString(),
+          }),
+        });
+
         const res = await authedFetch(`completed_tasks`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -704,19 +752,31 @@ export default function Dashboard() {
                             {format(new Date(task.start), "p")} - {format(new Date(task.end), "p")}
                           </p>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleMoveToCompleted(task.id);
-                          }}
-                          className="flex-shrink-0 p-2 text-white transition-transform duration-300"
-                        >
-                          {animatingTask === task.id ? (
-                            <CheckCircle2 className="w-5 h-5 text-emerald-400 animate-pulse" />
-                          ) : (
-                            <Circle className="w-5 h-5 text-stone-400" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartTask(task);
+                            }}
+                            className="flex-shrink-0 p-2 text-white transition-transform duration-300 hover:scale-110"
+                            title="Start task now"
+                          >
+                            <Play className="w-5 h-5 text-emerald-400" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveToCompleted(task.id);
+                            }}
+                            className="flex-shrink-0 p-2 text-white transition-transform duration-300"
+                          >
+                            {animatingTask === task.id ? (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-400 animate-pulse" />
+                            ) : (
+                              <Circle className="w-5 h-5 text-stone-400" />
+                            )}
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -780,7 +840,6 @@ export default function Dashboard() {
 
             <div className="flex justify-center gap-4 mt-2 mb-3">
               {mode === "timer" ? (
-                // Timer buttons (behavior adapted to sessionDuration)
                 !isRunning && timeLeft === sessionDuration ? (
                   <button
                     onClick={handleStartFocus}
@@ -824,7 +883,6 @@ export default function Dashboard() {
                   </>
                 )
               ) : (
-                // Stopwatch buttons
                 !isRunning && stopwatchElapsed === 0 ? (
                   <button
                     onClick={handleStartFocus}

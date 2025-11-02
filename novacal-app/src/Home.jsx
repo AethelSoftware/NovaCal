@@ -3,41 +3,32 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Mail,
-  Users,
-  Zap,
-  AppWindow,
-  FastForward,
-  Code,
-  HeartHandshake,
-  Brain,
-  Target,
+  Calendar,
   Clock,
+  RefreshCw,
+  Zap,
   Shield,
   Crown,
   Sparkles,
-  Calendar,
   CheckCircle2,
-  Star,
-  AlertTriangle,
+  ArrowRight,
+  PlayCircle,
 } from 'lucide-react';
 
-// NAVBAR COMPONENT (NO BG)
+// NAVBAR COMPONENT
 function Navbar() {
   return (
-    <nav
-      className="fixed top-0 left-0 w-full z-30 flex items-center justify-between px-6 py-4 pointer-events-auto"
-      style={{ background: "transparent" }}
-    >
+    <nav className="fixed top-0 left-0 w-full z-30 flex items-center justify-between px-6 py-4 pointer-events-auto bg-transparent">
       {/* Brand */}
       <div className="flex items-center">
         <span className="text-2xl font-extrabold tracking-tight text-white select-none pr-6">
-          Novacal
+          NovaCalendar
         </span>
       </div>
-      {/* Motto - Updated for focus */}
+      {/* Motto */}
       <div className="flex-1 flex justify-center">
         <span className="text-md md:text-lg text-sky-100 font-medium opacity-80 select-none">
-          focus deeper • achieve more • stress less
+          plans change • your calendar adapts • stress disappears
         </span>
       </div>
       {/* Login/Sign Up CTAs */}
@@ -46,7 +37,7 @@ function Navbar() {
           <a href="/login">Login</a>
         </button>
         <button className="px-5 py-2 rounded-full font-bold bg-gradient-to-r from-sky-500 via-blue-500 to-fuchsia-500 text-white shadow-md hover:scale-105 hover:shadow-lg hover:from-pink-500 hover:to-purple-500 transition-all focus:outline-none cursor-pointer">
-            <a href="/signup">Join Beta</a>
+          <a href="/signup">Join Beta</a>
         </button>
       </div>
     </nav>
@@ -55,12 +46,12 @@ function Navbar() {
 
 function randomColor() {
   const palette = [
-    "#f9a8d4",
-    "#818cf8",
-    "#f472b6",
-    "#a5b4fc",
     "#7dd3fc",
+    "#38bdf8", 
+    "#a5b4fc",
     "#c084fc",
+    "#f472b6",
+    "#67e8f9",
   ];
   return palette[Math.floor(Math.random() * palette.length)];
 }
@@ -182,7 +173,7 @@ const AnimatedSection = ({ children, sectionId, index, currentIndex }) => {
 };
 
 export default function HomePage() {
-  const sections = ["hero", "struggle", "solution", "features", "pioneer", "contact"];
+  const sections = ["hero", "problem", "solution", "features", "pioneer", "contact"];
   const [currentSection, setCurrentSection] = useState(0);
   const scrollLocked = useRef(false);
   const prefersReduced = useReducedMotion();
@@ -227,7 +218,7 @@ export default function HomePage() {
           index={currentSection}
           currentIndex={currentSection}
         >
-          {/* Hero - Direct emotional hook */}
+          {/* Hero - Direct value proposition */}
           {currentSection === 0 && (
             <div className="absolute inset-0 flex flex-col lg:flex-row items-center justify-center px-6">
               {/* Animated Graphic */}
@@ -249,7 +240,7 @@ export default function HomePage() {
                   transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
                 >
                   <div className="w-10 h-10 rounded-full bg-emerald-200/60 flex items-center justify-center shadow-lg">
-                    <Brain className="text-sky-200" />
+                    <RefreshCw className="text-sky-200" />
                   </div>
                 </motion.div>
 
@@ -259,7 +250,7 @@ export default function HomePage() {
                   transition={{ duration: 3.6, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
                 >
                   <div className="w-9 h-9 rounded-full bg-sky-200/60 flex items-center justify-center shadow-lg">
-                    <Target className="text-emerald-200" />
+                    <Zap className="text-emerald-200" />
                   </div>
                 </motion.div>
               </motion.div>
@@ -273,19 +264,19 @@ export default function HomePage() {
                   transition={{ duration: 1, delay: 0.2 }}
                 >
                   <span className="bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
-                    Tired of fighting<br />
-                    <span className="text-white">your own brain</span><br />
-                    every day?
+                    Plans fall apart.<br />
+                    <span className="text-white">Your calendar shouldn't.</span>
                   </span>
                 </motion.h1>
                 
                 <motion.p
-                  className="text-lg md:text-xl text-gray-300 mb-8"
+                  className="text-lg md:text-xl text-gray-300 mb-8 max-w-lg"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 1, delay: 0.4 }}
                 >
-                  What if your calendar <span className="text-sky-300 font-semibold">actually worked</span> with your focus struggles instead of against them?
+                  NovaCalendar automatically reschedules your day when things run late, meetings go long, or life happens.
+                  <span className="text-sky-300 font-semibold"> No manual drag-and-drop. No starting over.</span>
                 </motion.p>
 
                 <motion.div
@@ -296,19 +287,20 @@ export default function HomePage() {
                 >
                   <button className="px-6 py-3 text-lg font-bold bg-gradient-to-r from-sky-500 to-blue-600 rounded-full hover:scale-105 transition-transform group">
                     <a href="/signup" className="flex items-center gap-2">
-                      Yes, I Need This 
-                      <span className="group-hover:translate-x-1 transition-transform">→</span>
+                      Get Early Access 
+                      <ArrowRight className="group-hover:translate-x-1 transition-transform" />
                     </a>
                   </button>
-                  <button className="px-6 py-3 text-lg font-semibold bg-white/10 rounded-full border border-white/20 hover:bg-white/20 transition-all">
-                    <a href="#solution">Show Me How</a>
+                  <button className="px-6 py-3 text-lg font-semibold bg-white/10 rounded-full border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2">
+                    <PlayCircle className="w-5 h-5" />
+                    <a href="#solution">See How It Works</a>
                   </button>
                 </motion.div>
               </div>
             </div>
           )}
 
-          {/* The Struggle - Relatable pain points */}
+          {/* The Problem - Relatable pain points */}
           {currentSection === 1 && (
             <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto px-4">
               <motion.h2
@@ -317,7 +309,7 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
               >
                 <span className="bg-gradient-to-r from-rose-400 to-orange-400 bg-clip-text text-transparent">
-                  Sound Familiar?
+                  Tired of Calendar Chaos?
                 </span>
               </motion.h2>
 
@@ -325,23 +317,23 @@ export default function HomePage() {
                 {[
                   { 
                     icon: <Clock className="w-6 h-6" />, 
-                    title: "Time Blindness", 
-                    description: "2 hours feels like 20 minutes. Deadlines sneak up while you're stuck scrolling." 
+                    title: "The Domino Effect", 
+                    description: "One late meeting ruins your entire day. You spend hours manually rescheduling everything." 
                   },
                   { 
-                    icon: <AlertTriangle className="w-6 h-6" />, 
-                    title: "Task Paralysis", 
-                    description: "You know what needs doing, but starting feels impossible. So you do nothing instead." 
+                    icon: <RefreshCw className="w-6 h-6" />, 
+                    title: "Manual Rescheduling", 
+                    description: "Endless drag-and-drop. Constantly updating your calendar instead of doing actual work." 
                   },
                   { 
-                    icon: <Brain className="w-6 h-6" />, 
-                    title: "Mental Overwhelm", 
-                    description: "Too many tabs in your brain. Too many choices. Too much noise. Complete shutdown." 
+                    icon: <Calendar className="w-6 h-6" />, 
+                    title: "Rigid Systems", 
+                    description: "Traditional calendars don't understand that plans change. They fight reality instead of adapting to it." 
                   },
                   { 
-                    icon: <Target className="w-6 h-6" />, 
-                    title: "The Guilt Cycle", 
-                    description: "You had a plan. You failed the plan. Now you feel guilty about failing. Rinse, repeat." 
+                    icon: <Zap className="w-6 h-6" />, 
+                    title: "Mental Energy Drain", 
+                    description: "The cognitive load of constantly replanning leaves you exhausted before you even start working." 
                   }
                 ].map((item, index) => (
                   <motion.div
@@ -364,7 +356,7 @@ export default function HomePage() {
 
               <motion.div className="text-center mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
                 <p className="text-gray-300">
-                  It's not you. It's your tools. Regular calendars were built for neurotypical brains.
+                  Your calendar should work for you, not against you.
                 </p>
               </motion.div>
             </div>
@@ -373,7 +365,7 @@ export default function HomePage() {
           {/* Solution - The transformation */}
           {currentSection === 2 && (
             <div className="flex flex-col gap-8 w-full max-w-6xl mx-auto px-4">
-              {/* Header with Button */}
+              {/* Header */}
               <motion.div 
                 className="flex flex-col lg:flex-row justify-between items-center gap-6 mb-8"
                 initial={{ opacity: 0, y: 40 }}
@@ -384,7 +376,7 @@ export default function HomePage() {
                     className="text-3xl md:text-4xl font-bold mb-3"
                   >
                     <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                      Imagine This Instead
+                      Just a Schedule That Adapts to Reality
                     </span>
                   </motion.h2>
                   <motion.p
@@ -393,7 +385,7 @@ export default function HomePage() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.2 }}
                   >
-                    What if your calendar was designed for <span className="text-emerald-300 font-semibold">how your brain actually works</span>?
+                    What if your calendar could <span className="text-emerald-300 font-semibold">think for itself</span> when things change?
                   </motion.p>
                 </div>
                 
@@ -405,51 +397,33 @@ export default function HomePage() {
                 >
                   <button className="px-6 py-3 text-lg font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full hover:scale-105 hover:shadow-2xl transition-all duration-300 group">
                     <a href="/signup" className="flex items-center gap-2 whitespace-nowrap">
-                      I Want My Brain Back
-                      <span className="group-hover:translate-x-1 transition-transform">→</span>
+                      Try Magic Scheduling
+                      <ArrowRight className="group-hover:translate-x-1 transition-transform" />
                     </a>
                   </button>
                 </motion.div>
               </motion.div>
 
-              {/* Features Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {/* How It Works */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {[
                   {
                     icon: <Clock className="w-8 h-8" />,
-                    title: "Visual Time Understanding",
-                    description: "A calendar that shows time visually so you actually understand how long things take",
+                    title: "Set Your Priorities",
+                    description: "Tell NovaCalendar what matters most. It understands your must-do tasks vs. nice-to-haves.",
                     gradient: "from-blue-500/20 to-cyan-500/10"
                   },
                   {
                     icon: <Zap className="w-8 h-8" />,
-                    title: "Panic-Free Transitions", 
-                    description: "Gentle reminders that help you transition between tasks without the panic",
+                    title: "Work Naturally", 
+                    description: "When meetings run late or tasks take longer, just mark it. No manual rescheduling needed.",
                     gradient: "from-emerald-500/20 to-green-500/10"
                   },
                   {
-                    icon: <Target className="w-8 h-8" />,
-                    title: "Brain-Friendly Steps",
-                    description: "A system that breaks down overwhelming projects into brain-friendly steps",
+                    icon: <RefreshCw className="w-8 h-8" />,
+                    title: "Watch Magic Happen",
+                    description: "NovaCalendar instantly recalculates your entire day, preserving what matters most.",
                     gradient: "from-purple-500/20 to-pink-500/10"
-                  },
-                  {
-                    icon: <Brain className="w-8 h-8" />,
-                    title: "Focus Cycle Matching",
-                    description: "Tools that work with your focus cycles, not against them",
-                    gradient: "from-orange-500/20 to-red-500/10"
-                  },
-                  {
-                    icon: <HeartHandshake className="w-8 h-8" />,
-                    title: "Guilt-Free Adaptability",
-                    description: "No more guilt when plans change - because the system adapts with you",
-                    gradient: "from-indigo-500/20 to-blue-500/10"
-                  },
-                  {
-                    icon: <Sparkles className="w-8 h-8" />,
-                    title: "Built for You",
-                    description: "Every feature designed with ADHD and focus challenges in mind",
-                    gradient: "from-cyan-500/20 to-emerald-500/10"
                   }
                 ].map((item, index) => (
                   <motion.div
@@ -490,7 +464,7 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
               >
                 <span className="bg-gradient-to-r from-fuchsia-300 via-indigo-300 to-sky-400 bg-clip-text text-transparent">
-                  Solid Foundation, Amazing Future
+                  Smart Features, Simple Experience
                 </span>
               </motion.h2>
               
@@ -499,67 +473,72 @@ export default function HomePage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
-                We're starting with a powerful MVP and building the ADHD-friendly features <span className="text-emerald-300 font-semibold">with your feedback</span>
+                We're building the calendar that <span className="text-emerald-300 font-semibold">actually understands</span> how your day works
               </motion.p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <motion.div className="bg-gradient-to-tr from-sky-500/10 to-blue-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-sky-400/70 flex items-center justify-center">
-                      <Calendar className="text-sky-300" />
+                      <RefreshCw className="text-sky-300" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-sky-200">Smart Event System</h3>
-                      <div className="text-xs text-gray-400 font-medium">COMING SOON</div>
+                      <h3 className="text-lg font-semibold text-sky-200">Auto-Rescheduling</h3>
+                      <div className="flex items-center gap-1 text-xs text-gray-400 font-medium">
+                        COMING SOON
+                      </div>
                     </div>
                   </div>
                   <p className="text-gray-300 text-sm">
-                    Clean, intuitive scheduling that helps you stay organized without the overwhelm
+                    When one thing changes, everything else automatically adjusts to fit
                   </p>
                 </motion.div>
 
                 <motion.div className="bg-gradient-to-tr from-purple-500/10 to-pink-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-purple-400/70 flex items-center justify-center">
-                      <AppWindow className="text-purple-300" />
+                      <Zap className="text-purple-300" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-purple-200">Deep Customization</h3>
-                      <div className="text-xs text-gray-400 font-medium">COMING SOON</div>
+                      <h3 className="text-lg font-semibold text-purple-200">Priority Intelligence</h3>
+                      <div className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
+                        <CheckCircle2 className="w-3 h-3" />
+                        AVAILABLE NOW
+                      </div>
                     </div>
                   </div>
                   <p className="text-gray-300 text-sm">
-                    Tailor the app to your unique workflow and visual preferences
+                    Smart algorithms that know what's critical vs. what can move
                   </p>
                 </motion.div>
 
                 <motion.div className="bg-gradient-to-tr from-amber-500/10 to-orange-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-amber-400/70 flex items-center justify-center">
-                      <Zap className="text-amber-300" />
+                      <Calendar className="text-amber-300" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-amber-200">Focus Tools</h3>
+                      <h3 className="text-lg font-semibold text-amber-200">Calendar Sync</h3>
                       <div className="text-xs text-gray-400 font-medium">COMING SOON</div>
                     </div>
                   </div>
                   <p className="text-gray-300 text-sm">
-                    ADHD-friendly features to minimize distractions and maintain flow state
+                    Seamless integration with Google Calendar, Outlook, and Apple Calendar
                   </p>
                 </motion.div>
 
                 <motion.div className="bg-gradient-to-tr from-emerald-500/10 to-teal-500/5 border border-white/10 rounded-2xl p-6 backdrop-blur-lg">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-emerald-400/70 flex items-center justify-center">
-                      <Brain className="text-emerald-300" />
+                      <Sparkles className="text-emerald-300" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-emerald-200">Smart Scheduling</h3>
+                      <h3 className="text-lg font-semibold text-emerald-200">Smart Suggestions</h3>
                       <div className="text-xs text-gray-400 font-medium">COMING SOON</div>
                     </div>
                   </div>
                   <p className="text-gray-300 text-sm">
-                    AI-powered scheduling that understands energy levels and focus patterns
+                    AI-powered insights to optimize your schedule and prevent conflicts
                   </p>
                 </motion.div>
               </div>
@@ -575,7 +554,7 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
               >
                 <span className="bg-gradient-to-r from-amber-300 to-orange-400 bg-clip-text text-transparent">
-                  Stop Fighting Yourself
+                  Stop Rescheduling Manually
                 </span>
               </motion.h2>
 
@@ -585,7 +564,7 @@ export default function HomePage() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
               >
-                Join the first calendar built for focus-challenged brains
+                Join the first calendar that adapts to reality automatically
               </motion.p>
 
               <motion.div
@@ -601,10 +580,10 @@ export default function HomePage() {
                 
                 <div className="grid grid-cols-1 gap-3 text-left mb-6">
                   {[
-                    { icon: Star, text: "Free forever - no subscription ever" },
+                    { icon: CheckCircle2, text: "Free forever - no subscription ever" },
                     { icon: Shield, text: "Lifetime premium features" },
-                    { icon: HeartHandshake, text: "Direct influence on ADHD features" },
-                    { icon: Code, text: "Early access to all updates" }
+                    { icon: Sparkles, text: "Direct influence on product roadmap" },
+                    { icon: Zap, text: "Early access to all smart features" }
                   ].map((benefit, index) => (
                     <div key={index} className="flex items-center gap-3">
                       <benefit.icon className="text-amber-400 w-4 h-4" />
@@ -633,7 +612,7 @@ export default function HomePage() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1 }}
               >
-                You've tried everything else. Isn't it time you tried something that actually understands you?
+                Your time is too valuable to spend it rearranging calendar events.
               </motion.p>
             </div>
           )}
@@ -643,17 +622,17 @@ export default function HomePage() {
             <motion.div className="relative w-full max-w-xl flex flex-col items-center px-4 text-center">
               <motion.div className="absolute -inset-2 bg-gradient-to-br from-sky-500/20 via-teal-500/20 to-blue-400/10 rounded-3xl filter blur-2xl pointer-events-none -z-10" />
               <motion.h2 className="text-2xl md:text-3xl font-extrabold bg-sky-400 bg-clip-text text-transparent mb-4">
-                Help Us Build This
+                Ready for a Smarter Calendar?
               </motion.h2>
               <motion.p className="text-gray-300 mb-6 leading-relaxed">
-                We're looking for passionate beta testers who want to help create better time management tools for everyone.
+                Join our beta and be among the first to experience automatic rescheduling that actually works.
               </motion.p>
               <motion.a
                 href="mailto:aethelsoftware@gmail.com"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 text-lg font-bold rounded-full shadow-lg text-white bg-gradient-to-r from-teal-500 via-sky-500 to-blue-600 hover:scale-105 hover:shadow-2xl transition-all duration-300"
               >
                 <Mail className="text-white" />
-                Join Beta!
+                Join Beta Today
               </motion.a>
               <motion.div className="mt-6 text-sm text-gray-300 opacity-60">
                 <a href="mailto:aethelsoftware@gmail.com">aethelsoftware@gmail.com</a>

@@ -38,11 +38,12 @@ Novacal was my attempt to build a better Google Calendar. It actually helped me 
 
 ---
 
-## 📸 Screenshots
+## 📸 Screenshots (Low Quality, sorry I don't have that many)
 
-> *(insert screenshots here)*
+<img width="301" height="171" alt="Screenshot 2026-06-18 at 7 38 13 PM" src="https://github.com/user-attachments/assets/91ea8a24-4ed1-4082-9c4a-8917651a64db" /><img width="294" height="184" alt="Screenshot 2026-06-18 at 7 37 57 PM" src="https://github.com/user-attachments/assets/450947d6-b5f2-4eb6-bc08-4a1f8e6b7844" />
 
-If you have them, add them here. If not, I'll find them on an old hard drive or in the group chat.
+Green = habits.
+Blue = Planned study time
 
 ---
 

@@ -40,7 +40,8 @@ Novacal was my attempt to build a better Google Calendar. It actually helped me 
 
 ## 📸 Screenshots (Low Quality, sorry I don't have that many)
 
-<img width="301" height="171" alt="Screenshot 2026-06-18 at 7 38 13 PM" src="https://github.com/user-attachments/assets/91ea8a24-4ed1-4082-9c4a-8917651a64db" /><img width="294" height="184" alt="Screenshot 2026-06-18 at 7 37 57 PM" src="https://github.com/user-attachments/assets/450947d6-b5f2-4eb6-bc08-4a1f8e6b7844" />
+<img width="301" height="171" alt="Screenshot 2026-06-18 at 7 38 13 PM" src="https://github.com/user-attachments/assets/91ea8a24-4ed1-4082-9c4a-8917651a64db" /><img width="294" height="184" alt="Screenshot 2026-06-18 at 7 37 57 PM" src="https://github.com/user-attachments/assets/450947d6-b5f2-4eb6-bc08-4a1f8e6b7844" /><img width="1470" height="725" alt="Screenshot 2026-06-18 at 7 40 08 PM" src="https://github.com/user-attachments/assets/3f1390cd-13d2-4da3-b1ed-83028d277511" />
+
 
 Green = habits.
 Blue = Planned study time
@@ -50,6 +51,8 @@ Blue = Planned study time
 ## 🧹 Current Status
 
 > This project is paused and I cannot restore it through Supabase directly. As of now it is basically a dead project.
-> However, I have been building a separate app that fetches from Google Calendar, where you plan study sessions from deadlines and assignments. [Link is at fushistudy.com](https://fushistudy.com). Fushi is the succcesor of Novacal.
+> However, I have been building a separate app that fetches from Google Calendar, where you plan study sessions from deadlines and assignments.
+> [Link is at fushistudy.com](https://fushistudy.com).
+> I consider Fushi to be the succcesor of Novacal.
 
 ---

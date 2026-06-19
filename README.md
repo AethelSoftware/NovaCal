@@ -56,3 +56,16 @@ Blue = Planned study time
 > I consider Fushi to be the succcesor of Novacal.
 
 ---
+
+## 📄 License
+
+**You can use the code** — feel free to reference it, learn from it, or borrow snippets for your own projects.
+
+**But please don't:**  
+- Rebuild this exact project and claim it as your own  
+- Fork it and try to revive it as a competing service  
+- Republish it under a different name  
+
+This project is archived.
+
+---
